@@ -1,4 +1,4 @@
-"""Sensor platform for Alarm Clock."""
+"""Sensor platform for Alarm Clock integration."""
 from __future__ import annotations
 
 from datetime import datetime, timedelta
@@ -19,7 +19,7 @@ from .const import (
     NAME_STATUS,
     NAME_COUNTDOWN,
     NAME_SNOOZE_TIME,
-    STATE_DORMANT,
+    STATE_UNSET,
 )
 from .device import AlarmClockDevice
 
