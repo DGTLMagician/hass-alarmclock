@@ -1,7 +1,7 @@
-"""DateTime platform for Alarm Clock."""
+"""DateTime platform for Alarm Clock integration."""
 from __future__ import annotations
 
-from datetime import datetime, time
+from datetime import datetime, time, date
 
 from homeassistant.components.datetime import DateTimeEntity
 from homeassistant.config_entries import ConfigEntry
@@ -30,7 +30,6 @@ class AlarmTimeEntity(DateTimeEntity):
 
     _attr_has_entity_name = True
     _attr_entity_category = EntityCategory.CONFIG
-    _attr_icon = "mdi:calendar-clock"
     _attr_icon = "mdi:clock-time-four-outline"
 
     def __init__(self, device: AlarmClockDevice) -> None:
@@ -44,9 +43,11 @@ class AlarmTimeEntity(DateTimeEntity):
     @property
     def native_value(self) -> datetime:
         """Return the alarm time."""
+        # Use actual alarm time or midnight as default
+        alarm_time = self._device.alarm_time or time(0, 0)
         return datetime.combine(
             datetime.now().date(),
-            self._device.alarm_time
+            alarm_time
         )
 
     async def async_set_value(self, value: datetime) -> None:
@@ -58,6 +59,7 @@ class AlarmDateEntity(DateTimeEntity):
 
     _attr_has_entity_name = True
     _attr_entity_category = EntityCategory.CONFIG
+    _attr_icon = "mdi:calendar-clock"
 
     def __init__(self, device: AlarmClockDevice) -> None:
         """Initialize the entity."""
@@ -70,10 +72,9 @@ class AlarmDateEntity(DateTimeEntity):
     @property
     def native_value(self) -> datetime:
         """Return the alarm date."""
-        return datetime.combine(
-            self._device.alarm_date,
-            time(0, 0)
-        )
+        # Use actual alarm date or today as default
+        alarm_date = self._device.alarm_date or datetime.now().date()
+        return datetime.combine(alarm_date, time(0, 0))
 
     async def async_set_value(self, value: datetime) -> None:
         """Set the alarm date."""
