@@ -143,7 +143,7 @@ class AlarmClockDevice:
 
     async def async_set_alarm(self, value: datetime | time | str) -> None:
         """Set the alarm time and date."""
-ƒ        value = dt.as_local(value)
+        value = dt.as_local(value)
         try:
             if isinstance(value, str):
                 value = parse_time_string(value)
