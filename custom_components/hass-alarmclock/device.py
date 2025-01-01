@@ -115,7 +115,7 @@ class AlarmClockDevice:
         for callback in self._update_callbacks:
             callback()
 
-    async def _async_countdown_update(self) -> dict[str, Any]:
+    async def _async_countdown_update(self) -> dict[str, timedelta]:
         """Update countdown timer."""
         now = datetime.now()
         next_alarm = self.next_alarm

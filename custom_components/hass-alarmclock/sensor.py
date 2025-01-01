@@ -41,6 +41,7 @@ class AlarmStatusSensor(SensorEntity):
     """Sensor for alarm status."""
 
     _attr_has_entity_name = True
+    _attr_icon = "mdi:alarm-panel"
 
     def __init__(self, device: AlarmClockDevice) -> None:
         """Initialize the sensor."""
@@ -62,6 +63,7 @@ class AlarmCountdownSensor(CoordinatorEntity, SensorEntity):
     _attr_device_class = SensorDeviceClass.DURATION
     _attr_native_unit_of_measurement = "s"
     _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_icon = "mdi:timer-outline"
 
     def __init__(self, device: AlarmClockDevice) -> None:
         """Initialize the sensor."""
@@ -70,30 +72,29 @@ class AlarmCountdownSensor(CoordinatorEntity, SensorEntity):
         self._attr_unique_id = f"{device.entry_id}_countdown"
         self._attr_device_info = device.device_info
         self._attr_name = NAME_COUNTDOWN
-        device.register_update_callback(self.async_write_ha_state)
 
     @property
     def native_value(self) -> int | None:
         """Return the countdown value in seconds."""
         if not self._device.is_active:
             return None
-            
+
         data = self.coordinator.data
         if data and "time_left" in data:
             return int(data["time_left"].total_seconds())
         return None
 
     @property
-    def extra_state_attributes(self) -> dict[str, str]:
+    def extra_state_attributes(self) -> dict[str, str | int]:
         """Return the state attributes."""
         if not self._device.is_active:
             return {}
-            
+
         data = self.coordinator.data
         if data and "time_left" in data:
-            time_left = data["time_left"]
-            hours = int(time_left.total_seconds() // 3600)
-            minutes = int((time_left.total_seconds() % 3600) // 60)
+            total_seconds = int(data["time_left"].total_seconds())
+            hours = total_seconds // 3600
+            minutes = (total_seconds % 3600) // 60
             return {
                 "hours": hours,
                 "minutes": minutes,
@@ -108,6 +109,7 @@ class AlarmSnoozeDurationSensor(SensorEntity):
     _attr_device_class = SensorDeviceClass.DURATION
     _attr_native_unit_of_measurement = "min"
     _attr_entity_category = EntityCategory.CONFIG
+    _attr_icon = "mdi:sleep"
 
     def __init__(self, device: AlarmClockDevice) -> None:
         """Initialize the sensor."""

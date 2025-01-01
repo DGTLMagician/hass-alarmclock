@@ -30,6 +30,8 @@ class AlarmTimeEntity(DateTimeEntity):
 
     _attr_has_entity_name = True
     _attr_entity_category = EntityCategory.CONFIG
+    _attr_icon = "mdi:calendar-clock"
+    _attr_icon = "mdi:clock-time-four-outline"
 
     def __init__(self, device: AlarmClockDevice) -> None:
         """Initialize the entity."""

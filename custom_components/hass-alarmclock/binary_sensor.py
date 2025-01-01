@@ -31,6 +31,7 @@ class AlarmActiveSwitch(BinarySensorEntity):
 
     _attr_has_entity_name = True
     _attr_device_class = BinarySensorDeviceClass.RUNNING
+    _attr_icon = "mdi:alarm"
 
     def __init__(self, device: AlarmClockDevice) -> None:
         """Initialize the sensor."""
@@ -51,6 +52,7 @@ class AlarmSetSensor(BinarySensorEntity):
     _attr_has_entity_name = True
     _attr_device_class = BinarySensorDeviceClass.RUNNING
     _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_icon = "mdi:alarm-check"
 
     def __init__(self, device: AlarmClockDevice) -> None:
         """Initialize the sensor."""
