@@ -1,10 +1,10 @@
 """Switch platform for Alarm Clock integration."""
-from homeassistant.config_entries import ConfigEntry
 from __future__ import annotations
 
 import logging
 import voluptuous as vol
 
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import (
