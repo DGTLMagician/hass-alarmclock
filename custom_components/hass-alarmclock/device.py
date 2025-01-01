@@ -113,9 +113,13 @@ class AlarmClockDevice:
         """Update countdown timer."""
         if not self._is_active or self.next_alarm is None:
             return {"time_left": timedelta(seconds=0)}
-            
-        now = dt.now()
+        
+        now = dt.now()  # This is already timezone-aware
         next_alarm = self.next_alarm
+        
+        # Ensure next_alarm is timezone-aware by converting if needed
+        if next_alarm.tzinfo is None:
+            next_alarm = dt.as_local(next_alarm)
         
         time_left = next_alarm - now
         
