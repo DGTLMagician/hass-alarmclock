@@ -1,5 +1,8 @@
 {
-  "name": "HASS Alarm Clock",
-  "render_readme": true,
-  "homeassistant": "2024.1.0"
-}
+    "name": "Alarm Clock",
+    "render_readme": true,
+    "homeassistant": "2024.1.0",
+    "hacs": "1.6.0",
+    "hide_default_branch": true,
+    "icon": "mdi:alarm"
+  }
