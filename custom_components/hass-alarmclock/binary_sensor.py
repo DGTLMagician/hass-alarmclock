@@ -1,13 +1,14 @@
 """Binary sensor platform for Alarm Clock."""
 from __future__ import annotations
 
+from datetime import datetime
+
 from homeassistant.components.binary_sensor import (
     BinarySensorEntity,
     BinarySensorDeviceClass,
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN, NAME_ALARM_ACTIVE, NAME_IS_SET
@@ -51,7 +52,6 @@ class AlarmSetSensor(BinarySensorEntity):
 
     _attr_has_entity_name = True
     _attr_device_class = BinarySensorDeviceClass.RUNNING
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_icon = "mdi:alarm-check"
 
     def __init__(self, device: AlarmClockDevice) -> None:
