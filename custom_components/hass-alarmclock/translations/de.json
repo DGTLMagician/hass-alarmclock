@@ -1,0 +1,56 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Wecker hinzufügen",
+        "description": "Einen neuen Wecker einrichten",
+        "data": {
+          "name": "Name",
+          "alarm_time": "Standard Weckzeit (HH:MM:SS)",
+          "snooze_duration": "Schlummerzeit (Minuten)"
+        }
+      }
+    },
+    "error": {
+      "invalid_time": "Ungültiges Zeitformat. Bitte verwenden Sie HH:MM:SS, HH:MM oder HHMM"
+    }
+  },
+  "services": {
+    "set_alarm": {
+      "name": "Weckzeit einstellen",
+      "description": "Stellt die Weckzeit für einen bestimmten Wecker ein.",
+      "fields": {
+        "time": {
+          "name": "Zeit",
+          "description": "Die einzustellende Weckzeit (Format: HH:MM:SS, HH:MM oder HHMM)"
+        }
+      }
+    },
+    "snooze": {
+      "name": "Schlummern",
+      "description": "Aktiviert die Schlummerfunktion für die konfigurierte Dauer."
+    },
+    "stop": {
+      "name": "Stoppen",
+      "description": "Stoppt den aktuellen Alarm."
+    }
+  },
+  "entity": {
+    "switch": {
+      "state_attributes": {
+        "alarm_time": {
+          "name": "Weckzeit",
+          "state": {
+            "value": "Die eingestellte Weckzeit"
+          }
+        },
+        "snooze_time": {
+          "name": "Schlummerzeit",
+          "state": {
+            "value": "Dauer der Schlummerfunktion"
+          }
+        }
+      }
+    }
+  }
+}

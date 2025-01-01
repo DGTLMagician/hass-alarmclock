@@ -1,0 +1,24 @@
+set_alarm:
+  description: Set the alarm time
+  target:
+    entity:
+      integration: alarm_clock
+      domain: switch
+  fields:
+    time:
+      description: Time to set the alarm (format HH:MM:SS, HH:MM, or HHMM)
+      example: "07:00:00"
+
+snooze:
+  description: Snooze the alarm for the configured duration
+  target:
+    entity:
+      integration: alarm_clock
+      domain: switch
+  
+stop:
+  description: Stop the current alarm
+  target:
+    entity:
+      integration: alarm_clock
+      domain: switch

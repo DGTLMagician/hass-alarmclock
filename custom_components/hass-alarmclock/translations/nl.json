@@ -1,0 +1,56 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Wekker toevoegen",
+        "description": "Een nieuwe wekker instellen",
+        "data": {
+          "name": "Naam",
+          "alarm_time": "Standaard wektijd (HH:MM:SS)",
+          "snooze_duration": "Snooze duur (minuten)"
+        }
+      }
+    },
+    "error": {
+      "invalid_time": "Ongeldig tijdsformaat. Gebruik HH:MM:SS, HH:MM of HHMM"
+    }
+  },
+  "services": {
+    "set_alarm": {
+      "name": "Wektijd instellen",
+      "description": "Stelt de wektijd in voor een specifieke wekker.",
+      "fields": {
+        "time": {
+          "name": "Tijd",
+          "description": "De in te stellen wektijd (formaat: HH:MM:SS, HH:MM of HHMM)"
+        }
+      }
+    },
+    "snooze": {
+      "name": "Snooze",
+      "description": "Activeert de snooze functie voor de ingestelde duur."
+    },
+    "stop": {
+      "name": "Stoppen",
+      "description": "Stopt het huidige alarm."
+    }
+  },
+  "entity": {
+    "switch": {
+      "state_attributes": {
+        "alarm_time": {
+          "name": "Wektijd",
+          "state": {
+            "value": "De ingestelde wektijd"
+          }
+        },
+        "snooze_time": {
+          "name": "Snooze duur",
+          "state": {
+            "value": "Hoe lang te snoozen bij activering"
+          }
+        }
+      }
+    }
+  }
+}

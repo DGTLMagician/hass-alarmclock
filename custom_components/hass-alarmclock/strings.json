@@ -1,0 +1,38 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Add Alarm Clock",
+        "description": "Set up a new alarm clock",
+        "data": {
+          "name": "Name",
+          "alarm_time": "Default Alarm Time (HH:MM:SS)",
+          "snooze_duration": "Snooze Duration (minutes)"
+        }
+      }
+    },
+    "error": {
+      "invalid_time": "Invalid time format. Please use HH:MM:SS, HH:MM, or HHMM"
+    }
+  },
+  "services": {
+    "set_alarm": {
+      "name": "Set Alarm",
+      "description": "Sets the alarm time for a specific alarm clock.",
+      "fields": {
+        "time": {
+          "name": "Time",
+          "description": "The time to set the alarm to (format: HH:MM:SS, HH:MM, or HHMM)"
+        }
+      }
+    },
+    "snooze": {
+      "name": "Snooze",
+      "description": "Snooze the alarm for the configured duration."
+    },
+    "stop": {
+      "name": "Stop",
+      "description": "Stop the current alarm."
+    }
+  }
+}
