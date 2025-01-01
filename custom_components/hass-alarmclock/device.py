@@ -10,6 +10,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers import event
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.util import dt
 
 from .const import (
     DOMAIN,
@@ -99,10 +100,6 @@ class AlarmClockDevice:
             return None
         return datetime.combine(self._alarm_date, self._alarm_time)
 
-    async def async_added_to_hass(self) -> None:
-        """Run when device is added."""
-        await self._countdown_coordinator.async_config_entry_first_refresh()
-
     def register_update_callback(self, callback: Callable[[], None]) -> None:
         """Register callback for entity updates."""
         self._update_callbacks.append(callback)
@@ -117,15 +114,13 @@ class AlarmClockDevice:
         if not self._is_active or self.next_alarm is None:
             return {"time_left": timedelta(seconds=0)}
             
-        now = datetime.now()
+        now = dt.now()
         next_alarm = self.next_alarm
         
-        if next_alarm < now and self._is_active:
-            # Alarm should trigger
-            await self._handle_alarm_trigger()
-        
         time_left = next_alarm - now
-        if time_left.total_seconds() < 0:
+        
+        if time_left.total_seconds() <= 0:
+            await self._handle_alarm_trigger()
             time_left = timedelta(seconds=0)
             
         return {"time_left": time_left}
@@ -153,18 +148,15 @@ class AlarmClockDevice:
                 self._alarm_date = value.date()
             else:  # We got a time object
                 self._alarm_time = value
-                self._alarm_date = datetime.now().date()
+                self._alarm_date = dt.now().date()
                 
                 # If alarm time has passed today, set for tomorrow
-                if datetime.combine(self._alarm_date, self._alarm_time) < datetime.now():
+                if datetime.combine(self._alarm_date, self._alarm_time) < dt.now():
                     self._alarm_date = self._alarm_date + timedelta(days=1)
             
-            self._status = STATE_SET
-            self._is_active = True
-            self._notify_update()
-            
-            self._status = STATE_SET
-            self._is_active = True
+            # Only update status if alarm is active
+            if self._is_active:
+                self._status = STATE_SET
             self._notify_update()
             
         except ValueError as ex:
@@ -189,7 +181,7 @@ class AlarmClockDevice:
         if self._status != STATE_TRIGGERED:
             return
 
-        now = datetime.now()
+        now = dt.now()
         snooze_until = now + self._snooze_duration
         
         self._alarm_time = snooze_until.time()
@@ -204,6 +196,4 @@ class AlarmClockDevice:
             
         self._status = STATE_UNSET
         self._is_active = False
-        self._alarm_time = None
-        self._alarm_date = None
         self._notify_update()

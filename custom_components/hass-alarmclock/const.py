@@ -1,12 +1,13 @@
 """Constants for the Alarm Clock integration."""
 from datetime import timedelta
+from homeassistant.const import Platform
 
 # Domain
 DOMAIN = "alarm_clock"
 
 # Configuration and Services
 CONF_SNOOZE_DURATION = "snooze_duration"
-CONF_ALARM_TIME = "time"  # Used for service calls and datetime entity
+CONF_ALARM_TIME = "time"
 
 # Attributes
 ATTR_ALARM_TIME = "alarm_time"
@@ -14,13 +15,9 @@ ATTR_SNOOZE_TIME = "snooze_time"
 DEFAULT_SNOOZE_TIME = timedelta(minutes=9)
 
 # Entity names
-NAME_ALARM_ACTIVE = "Active"
-NAME_ALARM_DATE = "Date"
 NAME_ALARM_TIME = "Time"
-NAME_SNOOZE_TIME = "Snooze Duration"
 NAME_COUNTDOWN = "Countdown"
 NAME_STATUS = "Status"
-NAME_IS_SET = "Is Set"
 
 # States
 STATE_SET = "set"
@@ -34,4 +31,4 @@ SERVICE_SNOOZE = "snooze"
 SERVICE_STOP = "stop"
 
 # Platforms
-PLATFORMS = ["switch", "sensor", "binary_sensor", "datetime"]
+PLATFORMS = ["switch", "sensor", "datetime"]
