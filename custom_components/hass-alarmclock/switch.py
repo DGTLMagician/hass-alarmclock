@@ -1,4 +1,5 @@
-from homeassistant.config_entries import ConfigEntry"""Switch platform for Alarm Clock integration."""
+"""Switch platform for Alarm Clock integration."""
+from homeassistant.config_entries import ConfigEntry
 from __future__ import annotations
 
 import logging
