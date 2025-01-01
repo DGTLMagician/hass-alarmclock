@@ -11,12 +11,10 @@ from homeassistant.config_entries import ConfigEntry
 
 from .const import (
     DOMAIN,
-    CONF_ALARM_TIME,
     CONF_SNOOZE_DURATION,
     PLATFORMS,
 )
 from .device import AlarmClockDevice
-from .helpers import parse_time_string
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -30,7 +28,6 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Alarm Clock from a config entry."""
     name = entry.data[CONF_NAME]
-    alarm_time = parse_time_string(entry.data[CONF_ALARM_TIME])
     snooze_duration = entry.data.get(CONF_SNOOZE_DURATION, 9)
 
     # Create device
@@ -38,7 +35,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass,
         entry.entry_id,
         name,
-        alarm_time,
         snooze_duration,
     )
     

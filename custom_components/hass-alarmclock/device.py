@@ -10,7 +10,6 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers import event
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.const import CONF_NAME
 
 from .const import (
     DOMAIN,
@@ -18,7 +17,6 @@ from .const import (
     STATE_UNSET,
     STATE_TRIGGERED,
     STATE_SNOOZED,
-    DEFAULT_SNOOZE_TIME,
 )
 from .helpers import parse_time_string
 
@@ -32,20 +30,16 @@ class AlarmClockDevice:
         hass: HomeAssistant,
         entry_id: str,
         name: str,
-        alarm_time: time,
         snooze_duration: int,
     ) -> None:
         """Initialize the alarm clock device."""
         self.hass = hass
         self.entry_id = entry_id
         self.name = name
-        self._alarm_time = alarm_time
         self._snooze_duration = timedelta(minutes=snooze_duration)
         
-        self._alarm_date = datetime.now().date()
-        if datetime.combine(self._alarm_date, self._alarm_time) < datetime.now():
-            self._alarm_date = self._alarm_date + timedelta(days=1)
-            
+        self._alarm_time = None
+        self._alarm_date = None
         self._is_active = False
         self._status = STATE_UNSET
         self._remove_alarm_listener = None
@@ -79,12 +73,12 @@ class AlarmClockDevice:
         return self._is_active
 
     @property
-    def alarm_time(self) -> time:
+    def alarm_time(self) -> time | None:
         """Return the alarm time."""
         return self._alarm_time
 
     @property
-    def alarm_date(self) -> datetime:
+    def alarm_date(self) -> datetime | None:
         """Return the alarm date."""
         return self._alarm_date
 
@@ -99,8 +93,10 @@ class AlarmClockDevice:
         return self._snooze_duration
 
     @property
-    def next_alarm(self) -> datetime:
+    def next_alarm(self) -> datetime | None:
         """Return the next alarm datetime."""
+        if self._alarm_time is None or self._alarm_date is None:
+            return None
         return datetime.combine(self._alarm_date, self._alarm_time)
 
     async def async_added_to_hass(self) -> None:
@@ -118,6 +114,9 @@ class AlarmClockDevice:
 
     async def _async_countdown_update(self) -> dict[str, timedelta]:
         """Update countdown timer."""
+        if not self._is_active or self.next_alarm is None:
+            return {"time_left": timedelta(seconds=0)}
+            
         now = datetime.now()
         next_alarm = self.next_alarm
         
@@ -125,11 +124,8 @@ class AlarmClockDevice:
             # Alarm should trigger
             await self._handle_alarm_trigger()
         
-        if self._is_active:
-            time_left = next_alarm - now
-            if time_left.total_seconds() < 0:
-                time_left = timedelta(seconds=0)
-        else:
+        time_left = next_alarm - now
+        if time_left.total_seconds() < 0:
             time_left = timedelta(seconds=0)
             
         return {"time_left": time_left}
@@ -159,6 +155,7 @@ class AlarmClockDevice:
                 self._alarm_date = self._alarm_date + timedelta(days=1)
             
             self._status = STATE_SET
+            self._is_active = True
             self._notify_update()
             
         except ValueError as ex:
@@ -166,14 +163,16 @@ class AlarmClockDevice:
 
     async def async_activate(self) -> None:
         """Activate the alarm."""
+        if self._alarm_time is None:
+            return
         self._is_active = True
-        self._status = STATE_DORMANT
+        self._status = STATE_SET
         self._notify_update()
 
     async def async_deactivate(self) -> None:
         """Deactivate the alarm."""
         self._is_active = False
-        self._status = STATE_DORMANT
+        self._status = STATE_UNSET
         self._notify_update()
 
     async def async_snooze(self) -> None:
@@ -194,7 +193,8 @@ class AlarmClockDevice:
         if self._status not in [STATE_TRIGGERED, STATE_SNOOZED]:
             return
             
-        self._status = STATE_DORMANT
-        # Move alarm to next day
-        self._alarm_date = self._alarm_date + timedelta(days=1)
+        self._status = STATE_UNSET
+        self._is_active = False
+        self._alarm_time = None
+        self._alarm_date = None
         self._notify_update()
