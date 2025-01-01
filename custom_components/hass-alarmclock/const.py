@@ -1,6 +1,9 @@
 """Constants for the Alarm Clock integration."""
 from datetime import timedelta
 
+# Domain
+DOMAIN = "alarm_clock"
+
 # Configuration
 CONF_ALARM_TIME = "alarm_time"
 CONF_SNOOZE_DURATION = "snooze_duration"

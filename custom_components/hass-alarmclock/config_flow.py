@@ -58,7 +58,9 @@ class AlarmClockConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 {
                     vol.Required(CONF_NAME): str,
                     vol.Required(CONF_ALARM_TIME, default=DEFAULT_ALARM_TIME): str,
-                    vol.Optional(CONF_SNOOZE_DURATION, default=9): int,
+                    vol.Optional(CONF_SNOOZE_DURATION, default=9): vol.All(
+                        vol.Coerce(int), vol.Range(min=1, max=60)
+                    ),
                 }
             ),
             errors=errors,
