@@ -98,7 +98,8 @@ class AlarmClockDevice:
         """Return the next alarm datetime."""
         if self._alarm_time is None or self._alarm_date is None:
             return None
-        return datetime.combine(self._alarm_date, self._alarm_time)
+        # Ensure the combined datetime is in the local timezone
+        return dt.as_local(datetime.combine(self._alarm_date, self._alarm_time))
 
     def register_update_callback(self, callback: Callable[[], None]) -> None:
         """Register callback for entity updates."""
@@ -142,6 +143,7 @@ class AlarmClockDevice:
 
     async def async_set_alarm(self, value: datetime | time | str) -> None:
         """Set the alarm time and date."""
+ƒ        value = dt.as_local(value)
         try:
             if isinstance(value, str):
                 value = parse_time_string(value)
@@ -158,13 +160,21 @@ class AlarmClockDevice:
                 if datetime.combine(self._alarm_date, self._alarm_time) < dt.now():
                     self._alarm_date = self._alarm_date + timedelta(days=1)
             
-            # Only update status if alarm is active
-            if self._is_active:
-                self._status = STATE_SET
+            # Reset status and ensure active
+            self._is_active = True
+            self._status = STATE_SET
             self._notify_update()
             
         except ValueError as ex:
             raise HomeAssistantError(f"Invalid time format: {ex}")
+
+    async def async_unset_alarm(self) -> None:
+        """Unset the alarm."""
+        self._alarm_time = None
+        self._alarm_date = None
+        self._is_active = False
+        self._status = STATE_UNSET
+        self._notify_update()
 
     async def async_activate(self) -> None:
         """Activate the alarm."""
@@ -198,6 +208,8 @@ class AlarmClockDevice:
         if self._status not in [STATE_TRIGGERED, STATE_SNOOZED]:
             return
             
-        self._status = STATE_UNSET
+        self._alarm_time = None
+        self._alarm_date = None
         self._is_active = False
+        self._status = STATE_UNSET
         self._notify_update()
