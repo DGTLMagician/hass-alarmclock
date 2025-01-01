@@ -14,6 +14,8 @@ _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS = [Platform.SWITCH]
 
+CONFIG_SCHEMA = vol.Schema({DOMAIN: vol.Schema({})}, extra=vol.ALLOW_EXTRA)
+
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up the Alarm Clock component."""
     hass.data.setdefault(DOMAIN, {})
