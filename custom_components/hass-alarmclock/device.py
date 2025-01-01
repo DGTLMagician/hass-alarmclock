@@ -144,23 +144,28 @@ class AlarmClockDevice:
     async def async_set_alarm(self, value: datetime | time | str) -> None:
         """Set the alarm time and date."""
         value = dt.as_local(value)
+        now = dt.now()
+
         try:
+            # Convert string to time if needed
             if isinstance(value, str):
                 value = parse_time_string(value)
             
-            # If we got a datetime, split it into date and time
+            # Determine alarm datetime
             if isinstance(value, datetime):
-                self._alarm_time = value.time()
-                self._alarm_date = value.date()
-            else:  # We got a time object
-                self._alarm_time = value
-                self._alarm_date = dt.now().date()
-                
-                # If alarm time has passed today, set for tomorrow
-                if datetime.combine(self._alarm_date, self._alarm_time) < dt.now():
-                    self._alarm_date = self._alarm_date + timedelta(days=1)
+                alarm_datetime = value
+            else:  # time object
+                alarm_datetime = datetime.combine(now.date(), value)
             
-            # Reset status and ensure active
+            # Ensure alarm is at least 1 minute in the future
+            if alarm_datetime <= now:
+                alarm_datetime += timedelta(days=1)
+            
+            # Set alarm time and date
+            self._alarm_time = alarm_datetime.time()
+            self._alarm_date = alarm_datetime.date()
+            
+            # Activate alarm
             self._is_active = True
             self._status = STATE_SET
             self._notify_update()
