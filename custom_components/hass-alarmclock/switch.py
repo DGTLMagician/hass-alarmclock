@@ -1,140 +1,142 @@
 """Switch platform for Alarm Clock integration."""
 from __future__ import annotations
+
 import logging
 from datetime import datetime, time, timedelta
 import voluptuous as vol
 
-from homeassistant.components.switch import SwitchEntity
+from homeassistant.components.switch import SwitchEntity, SwitchDeviceClass
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.entity_platform import (
+    AddEntitiesCallback,
+    async_get_current_platform,
+)
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
-from homeassistant.helpers import event
+from homeassistant.config_entries import ConfigEntry
 import homeassistant.helpers.config_validation as cv
 from homeassistant.const import CONF_NAME, ATTR_TIME
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.helpers import entity_platform
 
 from .const import (
     DOMAIN,
-    ATTR_ALARM_TIME,
-    ATTR_SNOOZE_TIME,
     CONF_ALARM_TIME,
     CONF_SNOOZE_DURATION,
     SERVICE_SET_ALARM,
     SERVICE_SNOOZE,
     SERVICE_STOP,
+    ATTR_ALARM_TIME,
+    ATTR_SNOOZE_TIME,
 )
+from .device import AlarmClockDevice
 from .helpers import parse_time_string
 
 _LOGGER = logging.getLogger(__name__)
 
-async def async_setup_entry(
-    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
-) -> None:
-    """Set up the Alarm Clock switch from a config entry."""
-    name = entry.data[CONF_NAME]
-    alarm_time = entry.data[CONF_ALARM_TIME]
-    snooze_duration = entry.data.get(CONF_SNOOZE_DURATION, 9)
+# Service schemas
+SET_ALARM_SCHEMA = vol.Schema({
+    vol.Required(CONF_ALARM_TIME): cv.string,
+})
 
-    async_add_entities(
-        [AlarmClockSwitch(hass, entry.entry_id, name, alarm_time, snooze_duration)]
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up the alarm clock switch."""
+    device = hass.data[DOMAIN][entry.entry_id]["device"]
+
+    entity = AlarmClockSwitch(device)
+    async_add_entities([entity])
+
+    # Get platform
+    platform = async_get_current_platform()
+
+    # Register services
+    platform.async_register_entity_service(
+        SERVICE_SET_ALARM,
+        SET_ALARM_SCHEMA,
+        "async_set_alarm",
+    )
+
+    platform.async_register_entity_service(
+        SERVICE_SNOOZE,
+        {},
+        "async_snooze",
+    )
+
+    platform.async_register_entity_service(
+        SERVICE_STOP,
+        {},
+        "async_stop",
     )
 
 class AlarmClockSwitch(SwitchEntity):
     """Representation of an Alarm Clock switch."""
 
-    def __init__(
-        self,
-        hass: HomeAssistant,
-        entry_id: str,
-        name: str,
-        alarm_time: str,
-        snooze_duration: int,
-    ) -> None:
-        """Initialize the Alarm Clock switch."""
-        self.hass = hass
-        self.entry_id = entry_id
-        self._name = name
-        self._state = False
-        self._alarm_time = parse_time_string(alarm_time)
-        self._snooze_time = timedelta(minutes=snooze_duration)
-        self._remove_alarm_listener = None
-        self._attr_unique_id = f"alarm_clock_{name}"
-        self._attr_should_poll = False
+    _attr_has_entity_name = True
+    _attr_icon = "mdi:alarm"
+    _attr_device_class = SwitchDeviceClass.SWITCH
+
+    def __init__(self, device: AlarmClockDevice) -> None:
+        """Initialize the switch."""
+        self._device = device
+        self._attr_unique_id = f"{device.entry_id}_switch"
+        self._attr_device_info = device.device_info
+        self._attr_available = True
+        device.register_update_callback(self.async_write_ha_state)
 
     @property
     def name(self) -> str:
         """Return the display name of this switch."""
-        return self._name
+        return self._device.name
 
     @property
     def is_on(self) -> bool:
         """Return true if switch is on."""
-        return self._state
+        return self._device.is_active
+
+    @property
+    def available(self) -> bool:
+        """Return True if entity is available."""
+        return self._attr_available
+
+    @property
+    def should_poll(self) -> bool:
+        """No polling needed."""
+        return False
 
     @property
     def extra_state_attributes(self) -> dict:
         """Return the state attributes."""
-        return {
-            ATTR_ALARM_TIME: self._alarm_time.isoformat(),
-            ATTR_SNOOZE_TIME: str(self._snooze_time),
+        attrs = {
+            ATTR_SNOOZE_TIME: str(self._device.snooze_duration),
         }
+        if self._device.alarm_time:
+            attrs[ATTR_ALARM_TIME] = self._device.alarm_time.isoformat()
+        return attrs
 
     async def async_turn_on(self, **kwargs) -> None:
         """Turn the switch on."""
-        self._state = True
-        await self._setup_alarm()
+        await self._device.async_activate()
         self.async_write_ha_state()
 
     async def async_turn_off(self, **kwargs) -> None:
         """Turn the switch off."""
-        self._state = False
-        if self._remove_alarm_listener:
-            self._remove_alarm_listener()
-            self._remove_alarm_listener = None
+        await self._device.async_deactivate()
         self.async_write_ha_state()
 
-    async def _setup_alarm(self) -> None:
-        """Set up the alarm listener."""
-        if self._remove_alarm_listener:
-            self._remove_alarm_listener()
-
-        now = datetime.now()
-        alarm_dt = datetime.combine(now.date(), self._alarm_time)
-
-        # If alarm time has passed, schedule for next day
-        if alarm_dt < now:
-            alarm_dt = alarm_dt + timedelta(days=1)
-
-        @callback
-        async def alarm_triggered(now) -> None:
-            """Handler for alarm trigger."""
-            self._state = False
-            self.async_write_ha_state()
-            # Fire alarm_triggered event with the alarm ID
-            self.hass.bus.async_fire(
-                f"{DOMAIN}_triggered",
-                {"alarm_id": self._attr_unique_id}
-            )
-
-        self._remove_alarm_listener = event.async_track_point_in_time(
-            self.hass, alarm_triggered, alarm_dt
-        )
-
-    async def async_set_alarm(self, alarm_time: str) -> None:
-        """Set the alarm time."""
-        try:
-            self._alarm_time = parse_time_string(alarm_time)
-            if self._state:
-                await self._setup_alarm()
-            self.async_write_ha_state()
-        except ValueError as ex:
-            _LOGGER.error("Invalid time format: %s", ex)
+    async def async_set_alarm(self, **service_data) -> None:
+        """Handle set_alarm service."""
+        alarm_time = service_data[CONF_ALARM_TIME]
+        await self._device.async_set_alarm(alarm_time)
+        self.async_write_ha_state()
 
     async def async_snooze(self) -> None:
-        """Snooze the alarm."""
-        if not self._state:
-            return
+        """Handle snooze service."""
+        await self._device.async_snooze()
+        self.async_write_ha_state()
 
-        now = datetime.now()
-        snooze_time = now + self._snooze_time
-        await self.async_set_alarm(snooze_time.time().isoformat())
+    async def async_stop(self) -> None:
+        """Handle stop service."""
+        await self._device.async_stop()
+        self.async_write_ha_state()

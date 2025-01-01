@@ -4,8 +4,9 @@ from datetime import timedelta
 # Domain
 DOMAIN = "alarm_clock"
 
-# Configuration
+# Configuration and Services
 CONF_SNOOZE_DURATION = "snooze_duration"
+CONF_ALARM_TIME = "time"  # Used for service calls and datetime entity
 
 # Attributes
 ATTR_ALARM_TIME = "alarm_time"

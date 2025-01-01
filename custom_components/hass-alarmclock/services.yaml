@@ -8,6 +8,7 @@ set_alarm:
     time:
       description: Time to set the alarm (format HH:MM:SS, HH:MM, or HHMM)
       example: "07:00:00"
+      required: true
 
 snooze:
   description: Snooze the alarm for the configured duration
