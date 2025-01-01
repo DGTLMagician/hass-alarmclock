@@ -13,12 +13,12 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util import dt
 
 from .const import (
     DOMAIN,
     NAME_STATUS,
     NAME_COUNTDOWN,
-    NAME_SNOOZE_TIME,
     STATE_UNSET,
 )
 from .device import AlarmClockDevice
@@ -34,7 +34,6 @@ async def async_setup_entry(
     async_add_entities([
         AlarmStatusSensor(device),
         AlarmCountdownSensor(device),
-        AlarmSnoozeDurationSensor(device),
     ])
 
 class AlarmStatusSensor(SensorEntity):
@@ -98,27 +97,6 @@ class AlarmCountdownSensor(CoordinatorEntity, SensorEntity):
             return {
                 "hours": hours,
                 "minutes": minutes,
-                "formatted": f"{hours:02d}:{minutes:02d}"
+                "formatted": f"{hours:02d}:{minutes:02d}"  # 24-hour format
             }
         return {}
-
-class AlarmSnoozeDurationSensor(SensorEntity):
-    """Sensor for snooze duration."""
-
-    _attr_has_entity_name = True
-    _attr_device_class = SensorDeviceClass.DURATION
-    _attr_native_unit_of_measurement = "min"
-    _attr_icon = "mdi:sleep"
-
-    def __init__(self, device: AlarmClockDevice) -> None:
-        """Initialize the sensor."""
-        self._device = device
-        self._attr_unique_id = f"{device.entry_id}_snooze_duration"
-        self._attr_device_info = device.device_info
-        self._attr_name = NAME_SNOOZE_TIME
-        device.register_update_callback(self.async_write_ha_state)
-
-    @property
-    def native_value(self) -> int:
-        """Return the snooze duration in minutes."""
-        return int(self._device.snooze_duration.total_seconds() / 60)
