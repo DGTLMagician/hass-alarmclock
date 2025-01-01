@@ -108,7 +108,6 @@ class AlarmSnoozeDurationSensor(SensorEntity):
     _attr_has_entity_name = True
     _attr_device_class = SensorDeviceClass.DURATION
     _attr_native_unit_of_measurement = "min"
-    _attr_entity_category = EntityCategory.CONFIG
     _attr_icon = "mdi:sleep"
 
     def __init__(self, device: AlarmClockDevice) -> None:
