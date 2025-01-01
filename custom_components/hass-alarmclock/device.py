@@ -14,9 +14,10 @@ from homeassistant.const import CONF_NAME
 
 from .const import (
     DOMAIN,
+    STATE_SET,
+    STATE_UNSET,
     STATE_TRIGGERED,
     STATE_SNOOZED,
-    STATE_DORMANT,
     DEFAULT_SNOOZE_TIME,
 )
 from .helpers import parse_time_string
@@ -46,7 +47,7 @@ class AlarmClockDevice:
             self._alarm_date = self._alarm_date + timedelta(days=1)
             
         self._is_active = False
-        self._status = STATE_DORMANT
+        self._status = STATE_UNSET
         self._remove_alarm_listener = None
         
         # Store callbacks for entity updates
@@ -157,7 +158,7 @@ class AlarmClockDevice:
             if datetime.combine(self._alarm_date, self._alarm_time) < datetime.now():
                 self._alarm_date = self._alarm_date + timedelta(days=1)
             
-            self._status = STATE_DORMANT
+            self._status = STATE_SET
             self._notify_update()
             
         except ValueError as ex:

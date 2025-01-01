@@ -5,14 +5,12 @@ from datetime import timedelta
 DOMAIN = "alarm_clock"
 
 # Configuration
-CONF_ALARM_TIME = "alarm_time"
 CONF_SNOOZE_DURATION = "snooze_duration"
 
 # Attributes
 ATTR_ALARM_TIME = "alarm_time"
 ATTR_SNOOZE_TIME = "snooze_time"
 DEFAULT_SNOOZE_TIME = timedelta(minutes=9)
-DEFAULT_ALARM_TIME = "07:00:00"
 
 # Entity names
 NAME_ALARM_ACTIVE = "Active"
@@ -24,9 +22,10 @@ NAME_STATUS = "Status"
 NAME_IS_SET = "Is Set"
 
 # States
+STATE_SET = "set"
+STATE_UNSET = "unset"
 STATE_TRIGGERED = "triggered"
 STATE_SNOOZED = "snoozed"
-STATE_DORMANT = "dormant"
 
 # Services
 SERVICE_SET_ALARM = "set_alarm"

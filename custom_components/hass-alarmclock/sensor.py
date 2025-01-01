@@ -54,7 +54,7 @@ class AlarmStatusSensor(SensorEntity):
     @property
     def native_value(self) -> str:
         """Return the status."""
-        return self._device.status if self._device.is_active else STATE_DORMANT
+        return self._device.status
 
 class AlarmCountdownSensor(CoordinatorEntity, SensorEntity):
     """Sensor for countdown until alarm."""
