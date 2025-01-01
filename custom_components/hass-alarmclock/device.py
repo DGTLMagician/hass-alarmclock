@@ -141,18 +141,23 @@ class AlarmClockDevice:
             {"alarm_id": f"alarm_clock_{self.name.lower().replace(' ', '_')}"}
         )
 
-    async def async_set_alarm(self, alarm_time: str | time) -> None:
-        """Set the alarm time."""
+    async def async_set_alarm(self, alarm_datetime: datetime | time | str) -> None:
+        """Set the alarm time and date."""
         try:
-            if isinstance(alarm_time, str):
-                alarm_time = parse_time_string(alarm_time)
+            if isinstance(alarm_datetime, str):
+                alarm_datetime = parse_time_string(alarm_datetime)
             
-            self._alarm_time = alarm_time
-            self._alarm_date = datetime.now().date()
-            
-            # If alarm time has passed today, set for tomorrow
-            if datetime.combine(self._alarm_date, self._alarm_time) < datetime.now():
-                self._alarm_date = self._alarm_date + timedelta(days=1)
+            # If we got a datetime, split it into date and time
+            if isinstance(alarm_datetime, datetime):
+                self._alarm_time = alarm_datetime.time()
+                self._alarm_date = alarm_datetime.date()
+            else:  # We got a time object
+                self._alarm_time = alarm_datetime
+                self._alarm_date = datetime.now().date()
+                
+                # If alarm time has passed today, set for tomorrow
+                if datetime.combine(self._alarm_date, self._alarm_time) < datetime.now():
+                    self._alarm_date = self._alarm_date + timedelta(days=1)
             
             self._status = STATE_SET
             self._is_active = True
