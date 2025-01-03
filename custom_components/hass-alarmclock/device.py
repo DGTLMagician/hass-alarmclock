@@ -120,11 +120,13 @@ class AlarmClockDevice:
     def _ensure_future_time(self, alarm_datetime: datetime) -> datetime:
         """Ensure the alarm time is in the future by at least 1 minute."""
         now = dt.now()
-        min_alarm_time = now + timedelta(minutes=1)
+        min_future_time = now + timedelta(minutes=1)
         
-        while alarm_datetime <= min_alarm_time:
-            alarm_datetime += timedelta(days=1)
-            
+        if alarm_datetime <= now:
+            # Only add a day if the time is in the past
+            while alarm_datetime <= now:
+                alarm_datetime += timedelta(days=1)
+        
         return alarm_datetime
 
     async def _async_countdown_update(self) -> dict[str, timedelta]:
