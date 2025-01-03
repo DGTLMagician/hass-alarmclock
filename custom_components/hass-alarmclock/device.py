@@ -160,6 +160,37 @@ class AlarmClockDevice:
             {"alarm_id": f"alarm_clock_{self.name.lower().replace(' ', '_')}"}
         )
 
+    async def async_set_alarm_time_only(self, value: datetime | time | str) -> None:
+        """Set the alarm time and date without activating the alarm."""
+        try:
+            # Convert string to time if needed
+            if isinstance(value, str):
+                value = parse_time_string(value)
+            
+            # Convert time to datetime if needed
+            if isinstance(value, time):
+                now = dt.now()
+                value = datetime.combine(now.date(), value)
+                
+            # Convert to local time
+            alarm_datetime = dt.as_local(value)
+            
+            # Store alarm time and date
+            self._original_alarm_time = alarm_datetime.time()
+            self._original_alarm_date = alarm_datetime.date()
+            self._alarm_time = self._original_alarm_time
+            self._alarm_date = self._original_alarm_date
+            
+            # Force countdown update if alarm is active
+            if self._is_active:
+                await self._countdown_coordinator.async_refresh()
+                
+            # Notify of the time update
+            self._notify_update()
+            
+        except ValueError as ex:
+            raise HomeAssistantError(f"Invalid time format: {ex}")
+
     async def async_set_alarm(self, value: datetime | time | str) -> None:
         """Set the alarm time and date."""
         try:
@@ -189,10 +220,49 @@ class AlarmClockDevice:
             # Activate alarm
             self._is_active = True
             self._status = STATE_SET
+            
+            # Force an immediate update of the countdown coordinator
+            await self._countdown_coordinator.async_refresh()
+            
+            # Notify entities of the update
             self._notify_update()
             
         except ValueError as ex:
             raise HomeAssistantError(f"Invalid time format: {ex}")
+
+    async def async_unset_alarm(self) -> None:
+        """Unset the alarm."""
+        self._alarm_time = None
+        self._alarm_date = None
+        self._original_alarm_time = None
+        self._original_alarm_date = None
+        self._snooze_end_time = None
+        self._is_active = False
+        self._status = STATE_UNSET
+        
+        # Force countdown update
+        await self._countdown_coordinator.async_refresh()
+        self._notify_update()
+
+    async def async_activate(self) -> None:
+        """Activate the alarm."""
+        if self._alarm_time is None:
+            return
+        self._is_active = True
+        self._status = STATE_SET
+        
+        # Force countdown update
+        await self._countdown_coordinator.async_refresh()
+        self._notify_update()
+
+    async def async_deactivate(self) -> None:
+        """Deactivate the alarm."""
+        self._is_active = False
+        self._status = STATE_UNSET
+        
+        # Force countdown update
+        await self._countdown_coordinator.async_refresh()
+        self._notify_update()
 
     async def async_snooze(self) -> None:
         """Snooze the alarm."""
@@ -228,29 +298,4 @@ class AlarmClockDevice:
             
         # Reset snooze-related properties
         self._snooze_end_time = None
-        self._notify_update()
-
-    async def async_unset_alarm(self) -> None:
-        """Unset the alarm."""
-        self._alarm_time = None
-        self._alarm_date = None
-        self._original_alarm_time = None
-        self._original_alarm_date = None
-        self._snooze_end_time = None
-        self._is_active = False
-        self._status = STATE_UNSET
-        self._notify_update()
-
-    async def async_activate(self) -> None:
-        """Activate the alarm."""
-        if self._alarm_time is None:
-            return
-        self._is_active = True
-        self._status = STATE_SET
-        self._notify_update()
-
-    async def async_deactivate(self) -> None:
-        """Deactivate the alarm."""
-        self._is_active = False
-        self._status = STATE_UNSET
         self._notify_update()

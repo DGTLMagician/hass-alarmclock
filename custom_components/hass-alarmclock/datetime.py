@@ -54,5 +54,6 @@ class AlarmTimeEntity(DateTimeEntity):
         )
 
     async def async_set_value(self, value: datetime) -> None:
-        """Set the alarm time and date."""
-        await self._device.async_set_alarm(value)
+        """Update the alarm time without activating it."""
+        # Store the new time in device but don't activate
+        await self._device.async_set_alarm_time_only(value)
