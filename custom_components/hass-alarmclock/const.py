@@ -18,6 +18,8 @@ DEFAULT_SNOOZE_TIME = timedelta(minutes=9)
 NAME_ALARM_TIME = "Time"
 NAME_COUNTDOWN = "Countdown"
 NAME_STATUS = "Status"
+NAME_SNOOZE_TIMER = "Snooze Timer"
+NAME_SNOOZE_BUTTON = "Snooze Button"
 
 # States
 STATE_SET = "set"
@@ -31,4 +33,4 @@ SERVICE_SNOOZE = "snooze"
 SERVICE_STOP = "stop"
 
 # Platforms
-PLATFORMS = ["switch", "sensor", "datetime"]
+PLATFORMS = ["switch", "sensor", "datetime", "button"]

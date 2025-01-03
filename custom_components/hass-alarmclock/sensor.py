@@ -19,7 +19,9 @@ from .const import (
     DOMAIN,
     NAME_STATUS,
     NAME_COUNTDOWN,
+    NAME_SNOOZE_TIMER,
     STATE_UNSET,
+    STATE_SNOOZED,
 )
 from .device import AlarmClockDevice
 
@@ -34,6 +36,7 @@ async def async_setup_entry(
     async_add_entities([
         AlarmStatusSensor(device),
         AlarmCountdownSensor(device),
+        SnoozeTimerSensor(device),
     ])
 
 class AlarmStatusSensor(SensorEntity):
@@ -97,6 +100,53 @@ class AlarmCountdownSensor(CoordinatorEntity, SensorEntity):
             return {
                 "hours": hours,
                 "minutes": minutes,
-                "formatted": f"{hours:02d}:{minutes:02d}"  # 24-hour format
+                "formatted": f"{hours:02d}:{minutes:02d}"
+            }
+        return {}
+
+class SnoozeTimerSensor(CoordinatorEntity, SensorEntity):
+    """Sensor for snooze countdown."""
+
+    _attr_has_entity_name = True
+    _attr_device_class = SensorDeviceClass.DURATION
+    _attr_native_unit_of_measurement = "s"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_icon = "mdi:timer-snooze"
+
+    def __init__(self, device: AlarmClockDevice) -> None:
+        """Initialize the sensor."""
+        super().__init__(device._countdown_coordinator)
+        self._device = device
+        self._attr_unique_id = f"{device.entry_id}_snooze_timer"
+        self._attr_device_info = device.device_info
+        self._attr_name = NAME_SNOOZE_TIMER
+
+    @property
+    def native_value(self) -> int | None:
+        """Return the snooze countdown value in seconds."""
+        if self._device.status != STATE_SNOOZED:
+            return None
+
+        snooze_end = self._device.snooze_end_time
+        if not snooze_end:
+            return None
+
+        time_left = snooze_end - dt.now()
+        return max(0, int(time_left.total_seconds()))
+
+    @property
+    def extra_state_attributes(self) -> dict[str, str | int]:
+        """Return the state attributes."""
+        if self._device.status != STATE_SNOOZED:
+            return {}
+
+        value = self.native_value
+        if value is not None:
+            minutes = value // 60
+            seconds = value % 60
+            return {
+                "minutes": minutes,
+                "seconds": seconds,
+                "formatted": f"{minutes:02d}:{seconds:02d}"
             }
         return {}
