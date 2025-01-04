@@ -53,27 +53,25 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Register services
     async def handle_set_alarm(call):
         """Handle the set_alarm service."""
-        _LOGGER.debug(f"Service call data: {json.dumps(call.data, indent=2)}") # Log the entire data
-        _LOGGER.debug(f"Service call target: {json.dumps(call.target, indent=2)}") # Log the target
-        _LOGGER.debug(f"Full service call: {json.dumps(call.__dict__, indent=2)}")
+        _LOGGER.debug(f"Service call data: {json.dumps(call.data, indent=2)}")
+        _LOGGER.debug(f"Service call target: {json.dumps(call.target, indent=2)}")
+        
         time_str = call.data.get("time")
-        targets = call.get("target", {}) # This is the KEY change
-        entity_ids = targets.get("entity_id") or [] # Use or [] for safety
-        device_ids = targets.get("device_id") or []
-        area_ids = targets.get("area_id") or []
+        # Haal targets direct uit call.target in plaats van call.data
+        targets = call.target
+        entity_ids = targets.get("entity_id", [])
+        device_ids = targets.get("device_id", [])
+        area_ids = targets.get("area_id", [])
 
-        if isinstance(entity_ids, str): # Handle single entity case
+        if isinstance(entity_ids, str):
             entity_ids = [entity_ids]
-        if isinstance(device_ids, str): # Handle single device case
+        if isinstance(device_ids, str):
             device_ids = [device_ids]
-        if isinstance(area_ids, str): # Handle single area case
+        if isinstance(area_ids, str):
             area_ids = [area_ids]
-            
-        _LOGGER.debug(f"Extracted entity_ids: {entity_ids}")
-        _LOGGER.debug(f"Extracted device_ids: {device_ids}")
-        _LOGGER.debug(f"Extracted area_ids: {area_ids}")        
+        
         _LOGGER.debug(f"Setting alarm with time {time_str} for targets: {targets}")
-
+        
         target_entity_ids = []
 
         # Handle entity targets
