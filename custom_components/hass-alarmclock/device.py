@@ -117,18 +117,6 @@ class AlarmClockDevice:
         for callback in self._update_callbacks:
             callback()
 
-    def _ensure_future_time(self, alarm_datetime: datetime) -> datetime:
-        """Ensure the alarm time is in the future by at least 1 minute."""
-        now = dt.now()
-        min_future_time = now + timedelta(minutes=1)
-        
-        if alarm_datetime <= now:
-            # Only add a day if the time is in the past
-            while alarm_datetime <= now:
-                alarm_datetime += timedelta(days=1)
-        
-        return alarm_datetime
-
     async def _async_countdown_update(self) -> dict[str, timedelta]:
         """Update countdown timer."""
         if not self._is_active or self.next_alarm is None:
@@ -191,6 +179,17 @@ class AlarmClockDevice:
         except ValueError as ex:
             raise HomeAssistantError(f"Invalid time format: {ex}")
 
+    def _ensure_future_time(self, alarm_datetime: datetime) -> datetime:
+        """Ensure the alarm time is in the future."""
+        now = dt.now()
+        
+        # If time is in the past
+        if alarm_datetime <= now:
+            # Add one day to make it tomorrow
+            alarm_datetime = alarm_datetime + timedelta(days=1)
+        
+        return alarm_datetime
+
     async def async_set_alarm(self, value: datetime | time | str) -> None:
         """Set the alarm time and date."""
         try:
@@ -198,13 +197,17 @@ class AlarmClockDevice:
             if isinstance(value, str):
                 value = parse_time_string(value)
             
-            # Convert time to datetime if needed
-            if isinstance(value, time):
-                now = dt.now()
-                value = datetime.combine(now.date(), value)
+            now = dt.now()
             
-            # Ensure alarm is at least 1 minute in the future
-            alarm_datetime = self._ensure_future_time(dt.as_local(value))
+            # If it's just a time, combine with today's date
+            if isinstance(value, time):
+                value = datetime.combine(now.date(), value)
+                
+            # Convert to local time if needed
+            alarm_datetime = dt.as_local(value)
+            
+            # Ensure alarm is in the future
+            alarm_datetime = self._ensure_future_time(alarm_datetime)
             
             # Store original alarm time and date
             self._original_alarm_time = alarm_datetime.time()
