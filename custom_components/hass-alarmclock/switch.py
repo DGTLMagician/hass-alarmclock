@@ -95,7 +95,8 @@ class AlarmClockSwitch(SwitchEntity):
 
     async def async_set_alarm(self, **service_data) -> None:
         """Handle set_alarm service."""
-        alarm_time = service_data[CONF_ALARM_TIME]
+        # Time komt nu als time-string in format "HH:MM:SS"
+        alarm_time = service_data["time"]
         await self._device.async_set_alarm(alarm_time)
 
     async def async_snooze(self) -> None:
