@@ -1,0 +1,96 @@
+blueprint:
+  name: Alarm Clock Media Player
+  description: Plays media when the alarm clock is triggered
+  domain: automation
+  input:
+    alarm_entity:
+      name: Alarm Clock
+      description: The alarm clock sensor entity to monitor
+      selector:
+        entity:
+          integration: alarm_clock
+          domain: sensor
+    media_player:
+      name: Media Player
+      description: Media player to play the sound/music
+      selector:
+        entity:
+          domain: media_player
+    media_content_id:
+      name: Media Content
+      description: URL or source of the media to play (optional)
+      default: ""
+      selector:
+        text:
+    media_volume:
+      name: Volume
+      description: Volume level (between 0 and 1)
+      default: 0.5
+      selector:
+        number:
+          min: 0.0
+          max: 1.0
+          step: 0.05
+    volume_restore:
+      name: Restore Volume
+      description: Restore original volume when alarm stops
+      default: true
+      selector:
+        boolean:
+
+trigger:
+  - platform: state
+    entity_id: !input alarm_entity
+    to: "triggered"
+
+action:
+  - variables:
+      original_volume: "{{ state_attr(media_player, 'volume_level') | float(default=0.3) }}"
+  
+  - service: media_player.volume_set
+    target:
+      entity_id: !input media_player
+    data:
+      volume_level: !input media_volume
+  
+  - choose:
+    - conditions:
+        - condition: template
+          value_template: "{{ not (media_content_id == '') }}"
+      sequence:
+        - service: media_player.play_media
+          target:
+            entity_id: !input media_player
+          data:
+            media_content_id: !input media_content_id
+            media_content_type: music
+    default:
+      - service: media_player.media_play
+        target:
+          entity_id: !input media_player
+
+  # Watch for alarm being stopped or snoozed
+  - wait_for_trigger:
+      - platform: state
+        entity_id: !input alarm_entity
+        to: "unset"
+      - platform: state
+        entity_id: !input alarm_entity
+        to: "snoozed"
+
+  - service: media_player.media_stop
+    target:
+      entity_id: !input media_player
+
+  - if:
+      - condition: template
+        value_template: "{{ volume_restore }}"
+    then:
+      - service: media_player.volume_set
+        target:
+          entity_id: !input media_player
+        data:
+          volume_level: "{{ original_volume }}"
+
+mode: restart
+max: 10
