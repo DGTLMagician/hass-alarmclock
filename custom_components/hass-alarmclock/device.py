@@ -287,8 +287,8 @@ class AlarmClockDevice:
 
     async def async_stop(self) -> None:
         """Stop the alarm."""
-        if self._status not in [STATE_TRIGGERED, STATE_SNOOZED]:
-            return
+#        if self._status not in [STATE_TRIGGERED, STATE_SNOOZED]:
+#            return
             
         # Reset to original alarm time if it exists
         if self._original_alarm_time and self._original_alarm_date:
