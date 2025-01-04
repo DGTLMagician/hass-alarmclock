@@ -4,15 +4,11 @@ set_alarm:
     Set the alarm time. Accepts formats: HH:MM:SS, HH:MM, H:MM, HHMM, or just H (e.g., 7 for 07:00).
     If the time is in the past, it will automatically be set for tomorrow.
     If the time is in the future, it will be set for today.
+  target:
+    entity:
+      integration: alarm_clock
+      domain: datetime
   fields:
-    entity_id:
-      name: Entity
-      description: The alarm clock datetime entity to set
-      required: true
-      selector:
-        entity:
-          integration: alarm_clock
-          domain: datetime
     time:
       name: Time
       description: "Time to set (examples: 07:00, 7, 0700)"
