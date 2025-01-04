@@ -8,6 +8,9 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.const import Platform, CONF_NAME
 from homeassistant.config_entries import ConfigEntry
+import homeassistant.helpers.device_registry as dr
+import homeassistant.helpers.area_registry as ar
+import homeassistant.helpers as ha
 
 from .const import (
     DOMAIN,
@@ -50,19 +53,46 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async def handle_set_alarm(call):
         """Handle the set_alarm service."""
         time_str = call.data.get("time")
-        target = call.target
-        entity_ids = target["entity_id"]
+        targets = call.get("target", {})
+        entity_ids = targets.get("entity_id", [])
+        device_ids = targets.get("device_id", [])
+        area_ids = targets.get("area_id", [])
         
-        if isinstance(entity_ids, str):
-            entity_ids = [entity_ids]
-            
-        _LOGGER.debug(f"Setting alarm with time {time_str} for entities {entity_ids}")
+        _LOGGER.debug(f"Setting alarm with time {time_str} for targets: {targets}")
+
+        target_entity_ids = []
+
+        # Handle entity targets
+        target_entity_ids.extend(entity_ids)
         
-        for datetime_entity_id in entity_ids:
+        # Handle device targets
+        for device_id in device_ids:
+            device = dr.async_get(hass).async_get(device_id)
+            if device:
+                for entity_id in device.entity_id:
+                    if entity_id.startswith("datetime"):
+                        target_entity_ids.append(entity_id)
+
+        # Handle area targets
+        for area_id in area_ids:
+            area = ar.async_get(hass).async_get(area_id)
+            if area:
+                entities_in_area = ha.helpers.entity_registry.async_entries_for_area(
+                    hass.data["entity_registry"], area.id
+                )
+                for entity in entities_in_area:
+                    if entity.entity_id.startswith("datetime"):
+                        target_entity_ids.append(entity.entity_id)
+        
+        for datetime_entity_id in target_entity_ids:
             # Convert datetime entity ID to entry_id
             # datetime.alarm_name_time -> alarm_name
-            entry_id = datetime_entity_id.split(".")[1].replace("_time", "")
-            
+            try:
+                entry_id = datetime_entity_id.split(".")[1].replace("_time", "")
+            except IndexError:
+                _LOGGER.warning(f"Invalid entity ID format: {datetime_entity_id}")
+                continue # Skip to the next entity if the format is invalid
+
             if entry_id in hass.data[DOMAIN]:
                 device = hass.data[DOMAIN][entry_id]["device"]
                 try:

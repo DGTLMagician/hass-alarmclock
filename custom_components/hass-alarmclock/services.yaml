@@ -1,31 +1,40 @@
 set_alarm:
   name: Set Alarm
-  description: >
-    Set the alarm time. Accepts formats: HH:MM:SS, HH:MM, H:MM, HHMM, or just H (e.g., 7 for 07:00).
+  description: Set the alarm time.
   target:
     entity:
       domain: datetime
       integration: alarm_clock
+    device:
+      integration: alarm_clock
+    area: {}
   fields:
     time:
       name: Time
-      description: "Time to set (examples: 07:00, 7, 0700)"
+      description: Time to set (examples: 07:00, 7, 0700)
       required: true
+      example: "07:00"
       selector:
-        time: {}
+        text:
+          type: text
 
 snooze:
   name: Snooze
-  description: Snooze the alarm for the configured duration
+  description: Snooze the alarm.
   target:
     entity:
-      integration: alarm_clock
       domain: switch
-
+      integration: alarm_clock
+    device:
+      integration: alarm_clock
+    area: {}
 stop:
   name: Stop
-  description: Stop the current alarm
+  description: Stop the alarm.
   target:
     entity:
-      integration: alarm_clock
       domain: switch
+      integration: alarm_clock
+    device:
+      integration: alarm_clock
+    area: {}
