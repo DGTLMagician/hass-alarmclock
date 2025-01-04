@@ -54,43 +54,51 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async def handle_set_alarm(call):
         """Handle the set_alarm service."""
         _LOGGER.debug(f"Service call data: {json.dumps(call.data, indent=2)}")
-        _LOGGER.debug(f"Service call target: {json.dumps(call.target, indent=2)}")
         
         time_str = call.data.get("time")
-        entity_ids = call.target.get("entity_id", [])
+        entity_id = call.data.get("entity_id")
         
-        if isinstance(entity_ids, str):
-            entity_ids = [entity_ids]
-        
-        for entity_id in entity_ids:
-            entry_id = entity_id.split("_")[2]
-            if entry_id in hass.data[DOMAIN]:
-                device = hass.data[DOMAIN][entry_id]["device"]
-                try:
+        if entity_id:
+            try:
+                entry_id = entity_id.split("_")[2]
+                if entry_id in hass.data[DOMAIN]:
+                    device = hass.data[DOMAIN][entry_id]["device"]
                     await device.async_set_alarm(time_str)
                     _LOGGER.debug(f"Successfully set alarm for {entity_id}")
-                except Exception as e:
-                    _LOGGER.error(f"Failed to set alarm: {e}")
+                else:
+                    _LOGGER.error(f"Device not found for entity {entity_id}")
+            except Exception as e:
+                _LOGGER.error(f"Failed to set alarm: {e}")
 
     async def handle_snooze(call):
         """Handle the snooze service."""
-        entity_ids = call.data.get("target", {}).get("entity_id", [])
+        entity_id = call.data.get("entity_id")
         
-        for entity_id in entity_ids:
-            entry_id = entity_id.split("_")[2]
-            if entry_id in hass.data[DOMAIN]:
-                device = hass.data[DOMAIN][entry_id]["device"]
-                await device.async_snooze()
+        if entity_id:
+            try:
+                entry_id = entity_id.split("_")[2]
+                if entry_id in hass.data[DOMAIN]:
+                    device = hass.data[DOMAIN][entry_id]["device"]
+                    await device.async_snooze()
+                else:
+                    _LOGGER.error(f"Device not found for entity {entity_id}")
+            except Exception as e:
+                _LOGGER.error(f"Failed to snooze: {e}")
 
     async def handle_stop(call):
         """Handle the stop service."""
-        entity_ids = call.data.get("target", {}).get("entity_id", [])
+        entity_id = call.data.get("entity_id")
         
-        for entity_id in entity_ids:
-            entry_id = entity_id.split("_")[2]
-            if entry_id in hass.data[DOMAIN]:
-                device = hass.data[DOMAIN][entry_id]["device"]
-                await device.async_stop()
+        if entity_id:
+            try:
+                entry_id = entity_id.split("_")[2]
+                if entry_id in hass.data[DOMAIN]:
+                    device = hass.data[DOMAIN][entry_id]["device"]
+                    await device.async_stop()
+                else:
+                    _LOGGER.error(f"Device not found for entity {entity_id}")
+            except Exception as e:
+                _LOGGER.error(f"Failed to stop: {e}")
 
     # Register services if not already registered
     if not hass.services.has_service(DOMAIN, "set_alarm"):
