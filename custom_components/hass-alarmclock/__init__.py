@@ -62,24 +62,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         
         if entity_id:
             try:
-                domain_entity = entity_id.split(".")
-                if len(domain_entity) != 2:
-                    _LOGGER.error(f"Invalid entity ID format: {entity_id}")
-                    return
-                    
-                entry_id = domain_entity[1].split("_")[0]
+                # Zoek door alle entries voor de juiste device
+                found = False
+                for entry_id, entry_data in hass.data[DOMAIN].items():
+                    device = entry_data["device"]
+                    # Check of dit de juiste device is voor deze entity_id
+                    if entity_id == f"switch.{device.name.lower()}_{device.name.lower()}":
+                        _LOGGER.debug(f"Found matching device with entry_id: {entry_id}")
+                        await device.async_set_alarm(time_str)
+                        _LOGGER.debug(f"Successfully set alarm for {entity_id}")
+                        found = True
+                        break
                 
-                _LOGGER.debug(f"Available entries in DOMAIN data: {list(hass.data[DOMAIN].keys())}")
-                _LOGGER.debug(f"Trying to find entry_id: {entry_id}")
-                
-                if entry_id in hass.data[DOMAIN]:
-                    device = hass.data[DOMAIN][entry_id]["device"]
-                    _LOGGER.debug(f"Found device for {entry_id}, calling async_set_alarm")
-                    await device.async_set_alarm(time_str)
-                    _LOGGER.debug(f"Successfully set alarm for {entity_id}")
-                else:
-                    _LOGGER.error(f"Device not found for entity {entity_id}")
-                    _LOGGER.debug(f"Available devices: {list(hass.data[DOMAIN].keys())}")
+                if not found:
+                    _LOGGER.error(f"No matching device found for entity {entity_id}")
+                    _LOGGER.debug(f"Available devices: {[f'switch.{data['device'].name.lower()}_{data['device'].name.lower()}' for data in hass.data[DOMAIN].values()]}")
+            
             except Exception as e:
                 _LOGGER.error(f"Failed to set alarm: {e}", exc_info=True)
 
@@ -89,17 +87,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         
         if entity_id:
             try:
-                domain_entity = entity_id.split(".")
-                if len(domain_entity) != 2:
-                    _LOGGER.error(f"Invalid entity ID format: {entity_id}")
-                    return
-                entry_id = domain_entity[1].split("_")[0]
-                
-                if entry_id in hass.data[DOMAIN]:
-                    device = hass.data[DOMAIN][entry_id]["device"]
-                    await device.async_snooze()
+                for entry_id, entry_data in hass.data[DOMAIN].items():
+                    device = entry_data["device"]
+                    if entity_id == f"switch.{device.name.lower()}_{device.name.lower()}":
+                        await device.async_snooze()
+                        break
                 else:
-                    _LOGGER.error(f"Device not found for entity {entity_id}")
+                    _LOGGER.error(f"No matching device found for entity {entity_id}")
             except Exception as e:
                 _LOGGER.error(f"Failed to snooze: {e}", exc_info=True)
 
@@ -109,17 +103,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         
         if entity_id:
             try:
-                domain_entity = entity_id.split(".")
-                if len(domain_entity) != 2:
-                    _LOGGER.error(f"Invalid entity ID format: {entity_id}")
-                    return
-                entry_id = domain_entity[1].split("_")[0]
-                
-                if entry_id in hass.data[DOMAIN]:
-                    device = hass.data[DOMAIN][entry_id]["device"]
-                    await device.async_stop()
+                for entry_id, entry_data in hass.data[DOMAIN].items():
+                    device = entry_data["device"]
+                    if entity_id == f"switch.{device.name.lower()}_{device.name.lower()}":
+                        await device.async_stop()
+                        break
                 else:
-                    _LOGGER.error(f"Device not found for entity {entity_id}")
+                    _LOGGER.error(f"No matching device found for entity {entity_id}")
             except Exception as e:
                 _LOGGER.error(f"Failed to stop: {e}", exc_info=True)
 
