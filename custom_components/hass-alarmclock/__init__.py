@@ -54,12 +54,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         
         if isinstance(datetime_entity_id, list):
             datetime_entity_id = datetime_entity_id[0]
+            
+        _LOGGER.debug(f"Setting alarm with time {time_str} for entity {datetime_entity_id}")
         
         # Convert datetime entity ID to entry_id
         # datetime.alarm_name_time -> alarm_name
         entry_id = datetime_entity_id.split(".")[1].replace("_time", "")
-        
-        _LOGGER.debug(f"Setting alarm with time {time_str} for entity {datetime_entity_id}, entry_id: {entry_id}")
         
         if entry_id in hass.data[DOMAIN]:
             device = hass.data[DOMAIN][entry_id]["device"]
