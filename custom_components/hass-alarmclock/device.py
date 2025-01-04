@@ -287,20 +287,24 @@ class AlarmClockDevice:
 
     async def async_stop(self) -> None:
         """Stop the alarm."""
-#        if self._status not in [STATE_TRIGGERED, STATE_SNOOZED]:
-#            return
-            
-        # Reset to original alarm time if it exists
+        # Behoud de alarmtijd maar deactiveer het alarm
         if self._original_alarm_time and self._original_alarm_date:
             self._alarm_time = self._original_alarm_time
             self._alarm_date = self._original_alarm_date
-            self._status = STATE_SET
-            self._is_active = True
         else:
             self._alarm_time = None
             self._alarm_date = None
-            self._is_active = False
-            self._status = STATE_UNSET
+        
+        # Altijd deactiveren en status op unset zetten
+        self._is_active = False
+        self._status = STATE_UNSET
+            
+        # Reset snooze-related properties
+        self._snooze_end_time = None
+        
+        # Force countdown update since we've changed the state
+        await self._countdown_coordinator.async_refresh()
+        self._notify_update()
             
         # Reset snooze-related properties
         self._snooze_end_time = None
