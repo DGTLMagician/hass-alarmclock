@@ -55,6 +55,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         """Handle the set_alarm service."""
         _LOGGER.debug(f"Service call data: {json.dumps(call.data, indent=2)}") # Log the entire data
         _LOGGER.debug(f"Service call target: {json.dumps(call.target, indent=2)}") # Log the target
+        _LOGGER.debug(f"Full service call: {json.dumps(call.__dict__, indent=2)}")
         time_str = call.data.get("time")
         targets = call.get("target", {}) # This is the KEY change
         entity_ids = targets.get("entity_id") or [] # Use or [] for safety

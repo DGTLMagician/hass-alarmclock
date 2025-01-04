@@ -1,40 +1,34 @@
 set_alarm:
-  name: Set Alarm
-  description: Set the alarm time.
-  target:
-    entity:
-      domain: datetime
-      integration: alarm_clock
-    device:
-      integration: alarm_clock
-    area: {}
   fields:
-    time:
-      name: Time
-      description: Time to set (examples: 07:00, 7, 0700)
+    entity_id:
+      example: "datetime.alarm_time"
       required: true
+      selector:
+        entity:
+          integration: alarm_clock
+          domain: datetime
+    time:
       example: "07:00"
+      required: true
       selector:
         text:
-          type: text
 
 snooze:
-  name: Snooze
-  description: Snooze the alarm.
-  target:
-    entity:
-      domain: switch
-      integration: alarm_clock
-    device:
-      integration: alarm_clock
-    area: {}
+  fields:
+    entity_id:
+      example: "switch.alarm"
+      required: true
+      selector:
+        entity:
+          integration: alarm_clock
+          domain: switch
+
 stop:
-  name: Stop
-  description: Stop the alarm.
-  target:
-    entity:
-      domain: switch
-      integration: alarm_clock
-    device:
-      integration: alarm_clock
-    area: {}
+  fields:
+    entity_id:
+      example: "switch.alarm"
+      required: true
+      selector:
+        entity:
+          integration: alarm_clock
+          domain: switch
