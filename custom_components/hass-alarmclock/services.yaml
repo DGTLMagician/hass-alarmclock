@@ -1,4 +1,4 @@
-set_alarm:
+set_alarm_time:
   name: Set Alarm
   description: Set the alarm time and activate the alarm.
   fields:
