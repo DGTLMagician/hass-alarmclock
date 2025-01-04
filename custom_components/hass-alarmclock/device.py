@@ -192,10 +192,13 @@ class AlarmClockDevice:
 
     async def async_set_alarm(self, value: datetime | time | str) -> None:
         """Set the alarm time and date."""
+        _LOGGER.debug(f"Setting alarm with value: {value}, type: {type(value)}")
         try:
             # Convert string to time if needed
             if isinstance(value, str):
+                _LOGGER.debug(f"Parsing time string: {value}")
                 value = parse_time_string(value)
+                _LOGGER.debug(f"Parsed time: {value}")
             
             now = dt.now()
             
@@ -232,7 +235,7 @@ class AlarmClockDevice:
             
         except ValueError as ex:
             raise HomeAssistantError(f"Invalid time format: {ex}")
-
+    
     async def async_unset_alarm(self) -> None:
         """Unset the alarm."""
         self._alarm_time = None

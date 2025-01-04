@@ -47,20 +47,26 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     
     # Register services
-    async def handle_set_alarm(service_call):
+    async def handle_set_alarm(call):
         """Handle the set_alarm service."""
-        alarm_time = service_call.data.get("time")
-        entity_ids = service_call.data.get("entity_id")
+        time_str = call.data.get("time")
+        entity_ids = call.data.get("target", {}).get("entity_id", [])
+        _LOGGER.debug(f"Setting alarm with time {time_str} for entities {entity_ids}")
         
         for entity_id in entity_ids:
             entry_id = entity_id.split("_")[2]  # Get entry_id from entity_id
             if entry_id in hass.data[DOMAIN]:
                 device = hass.data[DOMAIN][entry_id]["device"]
-                await device.async_set_alarm(alarm_time)
+                try:
+                    # Set the alarm time
+                    await device.async_set_alarm(time_str)
+                    _LOGGER.debug(f"Successfully set alarm for {entity_id}")
+                except Exception as e:
+                    _LOGGER.error(f"Failed to set alarm: {e}")
 
-    async def handle_snooze(service_call):
+    async def handle_snooze(call):
         """Handle the snooze service."""
-        entity_ids = service_call.data.get("entity_id")
+        entity_ids = call.data.get("target", {}).get("entity_id", [])
         
         for entity_id in entity_ids:
             entry_id = entity_id.split("_")[2]
@@ -68,9 +74,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 device = hass.data[DOMAIN][entry_id]["device"]
                 await device.async_snooze()
 
-    async def handle_stop(service_call):
+    async def handle_stop(call):
         """Handle the stop service."""
-        entity_ids = service_call.data.get("entity_id")
+        entity_ids = call.data.get("target", {}).get("entity_id", [])
         
         for entity_id in entity_ids:
             entry_id = entity_id.split("_")[2]
