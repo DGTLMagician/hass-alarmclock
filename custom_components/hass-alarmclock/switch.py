@@ -72,12 +72,15 @@ class AlarmClockSwitch(SwitchEntity):
         """Initialize the switch."""
         self._device = device
         self._attr_unique_id = f"{device.entry_id}_switch"
+        _LOGGER.debug(f"Initializing switch with device entry_id: {device.entry_id}")
+        _LOGGER.debug(f"Switch unique_id set to: {self._attr_unique_id}")
         self._attr_device_info = device.device_info
         device.register_update_callback(self.async_write_ha_state)
 
     @property
     def name(self) -> str:
         """Return the display name of this switch."""
+        _LOGGER.debug(f"Switch name requested for device: {self._device.name}")
         return self._device.name
 
     @property

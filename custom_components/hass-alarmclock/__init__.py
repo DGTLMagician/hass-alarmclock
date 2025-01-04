@@ -62,16 +62,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         
         if entity_id:
             try:
-                # Eerst splitsen op punt, dan het tweede deel nemen (na "switch.")
                 domain_entity = entity_id.split(".")
                 if len(domain_entity) != 2:
                     _LOGGER.error(f"Invalid entity ID format: {entity_id}")
                     return
                     
-                # Als er underscores zijn, pak dan het eerste deel
                 entry_id = domain_entity[1].split("_")[0]
                 
-                _LOGGER.debug(f"Extracted entry_id: {entry_id}")
+                _LOGGER.debug(f"Available entries in DOMAIN data: {list(hass.data[DOMAIN].keys())}")
+                _LOGGER.debug(f"Trying to find entry_id: {entry_id}")
                 
                 if entry_id in hass.data[DOMAIN]:
                     device = hass.data[DOMAIN][entry_id]["device"]
@@ -80,6 +79,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                     _LOGGER.debug(f"Successfully set alarm for {entity_id}")
                 else:
                     _LOGGER.error(f"Device not found for entity {entity_id}")
+                    _LOGGER.debug(f"Available devices: {list(hass.data[DOMAIN].keys())}")
             except Exception as e:
                 _LOGGER.error(f"Failed to set alarm: {e}", exc_info=True)
 
