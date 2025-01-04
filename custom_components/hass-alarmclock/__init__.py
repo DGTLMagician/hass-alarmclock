@@ -51,12 +51,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     
     # Register services
-    async def handle_set_alarm(call):
+    async def handle_set_alarm_time(call):
         """Handle the set_alarm service."""
         _LOGGER.debug(f"Service call data: {json.dumps(call.data, indent=2)}")
         
-        time_str = call.data.get("time")
         entity_id = call.data.get("entity_id")
+        time_str = call.data.get("time")
         
         if entity_id:
             try:
