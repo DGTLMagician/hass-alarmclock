@@ -101,8 +101,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 _LOGGER.error(f"Failed to stop: {e}")
 
     # Register services if not already registered
-    if not hass.services.has_service(DOMAIN, "set_alarm"):
-        hass.services.async_register(DOMAIN, "set_alarm", handle_set_alarm)
+    if not hass.services.has_service(DOMAIN, "set_alarm_time"):
+        hass.services.async_register(DOMAIN, "set_alarm_time", handle_set_alarm_time)
         hass.services.async_register(DOMAIN, "snooze", handle_snooze)
         hass.services.async_register(DOMAIN, "stop", handle_stop)
 
