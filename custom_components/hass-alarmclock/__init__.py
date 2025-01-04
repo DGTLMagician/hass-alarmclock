@@ -50,19 +50,25 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async def handle_set_alarm(call):
         """Handle the set_alarm service."""
         time_str = call.data.get("time")
-        entity_ids = call.data.get("target", {}).get("entity_id", [])
-        _LOGGER.debug(f"Setting alarm with time {time_str} for entities {entity_ids}")
+        datetime_entity_id = call.data.get("entity_id")
         
-        for entity_id in entity_ids:
-            entry_id = entity_id.split("_")[2]  # Get entry_id from entity_id
-            if entry_id in hass.data[DOMAIN]:
-                device = hass.data[DOMAIN][entry_id]["device"]
-                try:
-                    # Set the alarm time
-                    await device.async_set_alarm(time_str)
-                    _LOGGER.debug(f"Successfully set alarm for {entity_id}")
-                except Exception as e:
-                    _LOGGER.error(f"Failed to set alarm: {e}")
+        if isinstance(datetime_entity_id, list):
+            datetime_entity_id = datetime_entity_id[0]
+        
+        # Convert datetime entity ID to entry_id
+        # datetime.alarm_name_time -> alarm_name
+        entry_id = datetime_entity_id.split(".")[1].replace("_time", "")
+        
+        _LOGGER.debug(f"Setting alarm with time {time_str} for entity {datetime_entity_id}, entry_id: {entry_id}")
+        
+        if entry_id in hass.data[DOMAIN]:
+            device = hass.data[DOMAIN][entry_id]["device"]
+            try:
+                # Set the alarm time
+                await device.async_set_alarm(time_str)
+                _LOGGER.debug(f"Successfully set alarm for {datetime_entity_id}")
+            except Exception as e:
+                _LOGGER.error(f"Failed to set alarm: {e}")
 
     async def handle_snooze(call):
         """Handle the snooze service."""

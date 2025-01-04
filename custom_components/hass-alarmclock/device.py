@@ -235,7 +235,7 @@ class AlarmClockDevice:
             
         except ValueError as ex:
             raise HomeAssistantError(f"Invalid time format: {ex}")
-    
+            
     async def async_unset_alarm(self) -> None:
         """Unset the alarm."""
         self._alarm_time = None
