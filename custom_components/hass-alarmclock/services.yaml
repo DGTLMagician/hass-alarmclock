@@ -4,7 +4,7 @@ set_alarm:
   target:
     selector:
       target:
-        entity:
+        entity_id:
           integration: alarm_clock
           domain: switch
   fields:
@@ -22,7 +22,7 @@ snooze:
   target:
     selector:
       target:
-        entity:
+        entity_id:
           integration: alarm_clock
           domain: switch
           multiple: false
@@ -33,7 +33,7 @@ stop:
   target:
     selector:
       target:
-        entity:
+        entity_id:
           integration: alarm_clock
           domain: switch
           multiple: false
