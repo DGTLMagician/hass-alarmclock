@@ -51,24 +51,37 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     
     # Register services
-    async def handle_set_alarm_time(call):
+    async def handle_set_alarm(call):
         """Handle the set_alarm service."""
         _LOGGER.debug(f"Service call data: {json.dumps(call.data, indent=2)}")
         
-        entity_id = call.data.get("entity_id")
         time_str = call.data.get("time")
+        entity_id = call.data.get("entity_id")
+        
+        _LOGGER.debug(f"Processing set_alarm: time={time_str}, entity_id={entity_id}")
         
         if entity_id:
             try:
-                entry_id = entity_id.split("_")[2]
+                # Eerst splitsen op punt, dan het tweede deel nemen (na "switch.")
+                domain_entity = entity_id.split(".")
+                if len(domain_entity) != 2:
+                    _LOGGER.error(f"Invalid entity ID format: {entity_id}")
+                    return
+                    
+                # Als er underscores zijn, pak dan het eerste deel
+                entry_id = domain_entity[1].split("_")[0]
+                
+                _LOGGER.debug(f"Extracted entry_id: {entry_id}")
+                
                 if entry_id in hass.data[DOMAIN]:
                     device = hass.data[DOMAIN][entry_id]["device"]
+                    _LOGGER.debug(f"Found device for {entry_id}, calling async_set_alarm")
                     await device.async_set_alarm(time_str)
                     _LOGGER.debug(f"Successfully set alarm for {entity_id}")
                 else:
                     _LOGGER.error(f"Device not found for entity {entity_id}")
             except Exception as e:
-                _LOGGER.error(f"Failed to set alarm: {e}")
+                _LOGGER.error(f"Failed to set alarm: {e}", exc_info=True)
 
     async def handle_snooze(call):
         """Handle the snooze service."""
@@ -76,14 +89,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         
         if entity_id:
             try:
-                entry_id = entity_id.split("_")[2]
+                domain_entity = entity_id.split(".")
+                if len(domain_entity) != 2:
+                    _LOGGER.error(f"Invalid entity ID format: {entity_id}")
+                    return
+                entry_id = domain_entity[1].split("_")[0]
+                
                 if entry_id in hass.data[DOMAIN]:
                     device = hass.data[DOMAIN][entry_id]["device"]
                     await device.async_snooze()
                 else:
                     _LOGGER.error(f"Device not found for entity {entity_id}")
             except Exception as e:
-                _LOGGER.error(f"Failed to snooze: {e}")
+                _LOGGER.error(f"Failed to snooze: {e}", exc_info=True)
 
     async def handle_stop(call):
         """Handle the stop service."""
@@ -91,18 +109,23 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         
         if entity_id:
             try:
-                entry_id = entity_id.split("_")[2]
+                domain_entity = entity_id.split(".")
+                if len(domain_entity) != 2:
+                    _LOGGER.error(f"Invalid entity ID format: {entity_id}")
+                    return
+                entry_id = domain_entity[1].split("_")[0]
+                
                 if entry_id in hass.data[DOMAIN]:
                     device = hass.data[DOMAIN][entry_id]["device"]
                     await device.async_stop()
                 else:
                     _LOGGER.error(f"Device not found for entity {entity_id}")
             except Exception as e:
-                _LOGGER.error(f"Failed to stop: {e}")
+                _LOGGER.error(f"Failed to stop: {e}", exc_info=True)
 
     # Register services if not already registered
     if not hass.services.has_service(DOMAIN, "set_alarm_time"):
-        hass.services.async_register(DOMAIN, "set_alarm_time", handle_set_alarm_time)
+        hass.services.async_register(DOMAIN, "set_alarm_time", handle_set_alarm)
         hass.services.async_register(DOMAIN, "snooze", handle_snooze)
         hass.services.async_register(DOMAIN, "stop", handle_stop)
 
