@@ -1,0 +1,32 @@
+blueprint:
+  name: Alarm Clock Media Stop
+  description: Stops media playback when the alarm is stopped or snoozed
+  domain: automation
+  input:
+    alarm_sensor:
+      name: Alarm Status Sensor
+      description: The alarm clock status sensor to monitor
+      selector:
+        entity:
+          integration: alarm_clock
+          domain: sensor
+    media_player:
+      name: Media Player
+      description: Media player to stop
+      selector:
+        entity:
+          domain: media_player
+
+trigger:
+  - platform: state
+    entity_id: !input alarm_sensor
+    to: "unset"
+
+action:
+  - service: media_player.media_stop
+    target:
+      entity_id: !input media_player
+    metadata: {}
+    data: {}
+
+mode: single
