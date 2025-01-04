@@ -2,9 +2,11 @@ set_alarm:
   name: Set Alarm
   description: Set the alarm time and activate the alarm.
   target:
-    entity:
-      integration: alarm_clock
-      domain: switch
+    selector:
+      target:
+        entity:
+          integration: alarm_clock
+          domain: switch
   fields:
     time:
       name: Time
@@ -13,24 +15,25 @@ set_alarm:
       example: "07:00"
       selector:
         time:
-          enable_time: true
 
 snooze:
   name: Snooze Alarm
   description: Snooze the currently active alarm.
   target:
-    entity:
-      integration: alarm_clock
-      domain: switch
-      multiple: false
-  fields: {}
+    selector:
+      target:
+        entity:
+          integration: alarm_clock
+          domain: switch
+          multiple: false
 
 stop:
   name: Stop Alarm
   description: Stop the currently active alarm.
   target:
-    entity:
-      integration: alarm_clock
-      domain: switch
-      multiple: false
-  fields: {}
+    selector:
+      target:
+        entity:
+          integration: alarm_clock
+          domain: switch
+          multiple: false
