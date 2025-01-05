@@ -3,6 +3,13 @@ blueprint:
   description: Stel wekker in
   domain: automation
   input:
+    alarm_entity:
+      name: Alarm Entiteit
+      description: Selecteer de alarm entiteit die je wilt gebruiken
+      selector:
+        entity:
+          domain: alarm_clock
+      required: true
     time:
       name: Tijd
       description: Tijdstip van de wekker (bijv. 7:00, 14:30, 7 uur 's ochtends, over 10 minuten, over 2 uur)
@@ -22,61 +29,59 @@ blueprint:
         - "Maak me morgen wakker om {time}"
 
   action:
-    - choose:
-        - conditions: "{{ 'over' in trigger.slot_text.time }}"
-          sequence:
-            - variables:
-                time_parts: "{{ trigger.slot_text.time.split(' ') }}"
-                time_value: "{{ time_parts[0] | int }}"
-                time_unit: "{{ time_parts[1] | lower }}"
-                now_timestamp: "{{ now().timestamp() }}"
-            - choose:
-                - conditions: "{{ time_unit in ['minuten', 'minuut'] }}"
-                  sequence:
-                    - service: alarm_control_panel.set_alarm
-                      target:
-                        entity_id: alarm_control_panel.alarm_panel # VERVANG DIT!
-                      data:
-                        time: "{{ (now_timestamp + (time_value * 60)) | timestamp_custom('%H:%M', local=true) }}"
-                
-                - conditions: "{{ time_unit in ['uren', 'uur'] }}"
-                  sequence:
-                    - service: alarm_control_panel.set_alarm
-                      target:
-                        entity_id: alarm_control_panel.alarm_panel # VERVANG DIT!
-                      data:
-                        time: "{{ (now_timestamp + (time_value * 3600)) | timestamp_custom('%H:%M', local=true) }}"
-                
-                - conditions: "{{ time_unit in ['seconden', 'seconde'] }}"
-                  sequence:
-                    - service: alarm_control_panel.set_alarm
-                      target:
-                        entity_id: alarm_control_panel.alarm_panel # VERVANG DIT!
-                      data:
-                        time: "{{ (now_timestamp + time_value) | timestamp_custom('%H:%M', local=true) }}"
-                
-                - conditions: true
-                  sequence:
+    mode: single
+    sequence:
+      - choose:
+          - conditions: "{{ 'over' in trigger.slot_text.time }}"
+            sequence:
+              - variables:
+                  time_parts: "{{ trigger.slot_text.time.split(' ') }}"
+                  time_value: "{{ time_parts[0] | int }}"
+                  time_unit: "{{ time_parts[1] | lower }}"
+                  now_timestamp: "{{ now().timestamp() }}"
+              - choose:
+                  - conditions: "{{ time_unit in ['minuten', 'minuut'] }}"
+                    sequence:
+                      - service: alarm_clock.set_alarm
+                        target:
+                          entity_id: !input alarm_entity
+                        data:
+                          time: "{{ (now_timestamp + (time_value * 60)) | timestamp_custom('%H:%M', local=true) }}"
+                  
+                  - conditions: "{{ time_unit in ['uren', 'uur'] }}"
+                    sequence:
+                      - service: alarm_clock.set_alarm
+                        target:
+                          entity_id: !input alarm_entity
+                        data:
+                          time: "{{ (now_timestamp + (time_value * 3600)) | timestamp_custom('%H:%M', local=true) }}"
+                  
+                  - conditions: "{{ time_unit in ['seconden', 'seconde'] }}"
+                    sequence:
+                      - service: alarm_clock.set_alarm
+                        target:
+                          entity_id: !input alarm_entity
+                        data:
+                          time: "{{ (now_timestamp + time_value) | timestamp_custom('%H:%M', local=true) }}"
+                  
+                  default:
                     - service: notify.persistent_notification
                       data:
                         message: "Ongeldige tijdseenheid. Gebruik 'minuten', 'uren' of 'seconden'."
                         title: "Wekker Notificatie"
-            
-            - if: >-
-                {{ (now_timestamp + (time_value * 60)) | timestamp_custom('%H:%M', local=true) 
-                   < now() | timestamp_custom('%H:%M', local=true) }}
-              then:
-                - service: notify.persistent_notification
-                  data:
-                    message: "De ingestelde tijd is in het verleden. Controleer de tijd en probeer het opnieuw."
-                    title: "Wekker Notificatie"
-        
-        - conditions: true
-          sequence:
-            - service: alarm_control_panel.set_alarm
+              
+              - if: >-
+                  {{ (now_timestamp + (time_value * 60)) | timestamp_custom('%H:%M', local=true) 
+                     < now() | timestamp_custom('%H:%M', local=true) }}
+                then:
+                  - service: notify.persistent_notification
+                    data:
+                      message: "De ingestelde tijd is in het verleden. Controleer de tijd en probeer het opnieuw."
+                      title: "Wekker Notificatie"
+          
+          default:
+            - service: alarm_clock.set_alarm
               target:
-                entity_id: alarm_control_panel.alarm_panel # VERVANG DIT!
+                entity_id: !input alarm_entity
               data:
                 time: "{{ trigger.slot_text.time }}"
-
-    mode: single
