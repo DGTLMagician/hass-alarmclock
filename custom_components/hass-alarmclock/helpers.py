@@ -104,30 +104,43 @@ class DateTimeParser:
         """Normalize date string and extract time part."""
         text = date_str.lower().strip()
         
-        # Remove prepositions
-        for prep in self.lang.prepositions:
-            text = re.sub(rf'\b{prep}\b', ' ', text)
-        
-        # Remove multiple spaces
-        text = ' '.join(text.split())
-        
         # Extract time part if present
         time_part = None
-        at_word = self.lang.time_words['at']
-        if isinstance(at_word, list):
-            at_patterns = at_word
-        else:
-            at_patterns = [at_word]
+        date_part = text
         
+        # Look for time indicators
+        at_word = self.lang.time_words['at']
+        hour_words = self.lang.time_words['hour']
+        
+        # Convert to list if not already
+        at_patterns = [at_word] if isinstance(at_word, str) else at_word
+        hour_patterns = [hour_words] if isinstance(hour_words, str) else hour_words
+        
+        # First try with explicit 'at' word
         for pattern in at_patterns:
             if f" {pattern} " in text:
                 parts = text.split(f" {pattern} ")
-                text = parts[0]
+                date_part = parts[0]
                 if len(parts) > 1:
                     time_part = parts[1]
-                break
+                    break
         
-        return text.strip(), time_part
+        # If no explicit 'at', look for time with hour words
+        if not time_part:
+            for hour_word in hour_patterns:
+                match = re.search(rf'(\d+(?:[:\.]\d+)?)\s*{hour_word}', text)
+                if match:
+                    time_part = match.group(0)
+                    date_part = text.replace(time_part, '').strip()
+                    break
+        
+        # Clean up date part by removing prepositions
+        for prep in self.lang.prepositions:
+            date_part = re.sub(rf'\b{prep}\b', ' ', date_part)
+        
+        # Remove multiple spaces
+        date_part = ' '.join(date_part.split())
+        return date_part.strip(), time_part
 
     def normalize_time_string(self, time_str: str) -> str:
         """Normalize time string by removing language-specific words."""
@@ -306,19 +319,20 @@ class DateTimeParser:
         """Parse full date/time string."""
         text = text.lower().strip()
         
-        # First try to parse as just a time
-        try:
-            time_obj = self.parse_time(text)
-            _LOGGER.debug(f"Parsed as time only: {time_obj}")
-            return self._get_appropriate_date(time_obj), time_obj
-        except ValueError:
-            pass
-        
-        # Then try to parse date with optional time
+        # Split into date and time components
         date_str, time_str = self.normalize_date_string(text)
         
-        # Parse the date part
-        date_obj = self.parse_date(date_str)
+        # First try to parse the date part
+        try:
+            date_obj = self.parse_date(date_str)
+        except ValueError:
+            # If parsing as date fails, try parsing the entire string as just a time
+            try:
+                time_obj = self.parse_time(text)
+                return self._get_appropriate_date(time_obj), time_obj
+            except ValueError:
+                # If that fails too, re-raise the original date parsing error
+                raise ValueError(f"Could not parse date: {text}")
         
         # Parse the time part if present, otherwise use default
         try:
