@@ -9,66 +9,74 @@ blueprint:
       required: true
       selector:
         text: {}
+
   trigger:
     - platform: conversation
-      command:
-        - (Stel | Zet) (een | het) (wekker | alarm) (in |) (om | voor | op | over) {time}
-        - (Wek | Maak me wakker) (om | voor | over) {time}
-        - (Alarm | Wekker) (om | voor) {time}
-        - Wek me 's ochtends om {time}
-        - Maak me morgenochtend wakker om {time}
-        - Wek me morgen om {time}
-        - Maak me morgen wakker om {time}
+      pattern:
+        - "(Stel|Zet) (een|het) (wekker|alarm) (in|) (om|voor|op|over) {time}"
+        - "(Wek|Maak) me wakker (om|voor|over) {time}"
+        - "(Alarm|Wekker) (om|voor) {time}"
+        - "Wek me 's ochtends om {time}"
+        - "Maak me morgenochtend wakker om {time}"
+        - "Wek me morgen om {time}"
+        - "Maak me morgen wakker om {time}"
+
   action:
     - choose:
-        - conditions: "{{ 'over' in trigger.text }}"
+        - conditions: "{{ 'over' in trigger.slot_text.time }}"
           sequence:
             - variables:
-                time_parts: "{{ trigger.time.split(' ') }}"
-                time_value: "{{ time_parts[1] | int }}"
-                time_unit: "{{ time_parts[2] | lower }}"
+                time_parts: "{{ trigger.slot_text.time.split(' ') }}"
+                time_value: "{{ time_parts[0] | int }}"
+                time_unit: "{{ time_parts[1] | lower }}"
                 now_timestamp: "{{ now().timestamp() }}"
             - choose:
-                - conditions: "{{ time_unit == 'minuten' or time_unit == 'minuut' }}"
+                - conditions: "{{ time_unit in ['minuten', 'minuut'] }}"
                   sequence:
                     - service: alarm_control_panel.set_alarm
                       target:
                         entity_id: alarm_control_panel.alarm_panel # VERVANG DIT!
                       data:
-                        time: "{{ (now_timestamp + (time_value * 60)) | timestamp_custom('%H:%M', local=False) }}"
-                - conditions: "{{ time_unit == 'uren' or time_unit == 'uur' }}"
+                        time: "{{ (now_timestamp + (time_value * 60)) | timestamp_custom('%H:%M', local=true) }}"
+                
+                - conditions: "{{ time_unit in ['uren', 'uur'] }}"
                   sequence:
                     - service: alarm_control_panel.set_alarm
                       target:
                         entity_id: alarm_control_panel.alarm_panel # VERVANG DIT!
                       data:
-                        time: "{{ (now_timestamp + (time_value * 3600)) | timestamp_custom('%H:%M', local=False) }}"
-                - conditions: "{{ time_unit == 'seconden' or time_unit == 'seconde' }}"
+                        time: "{{ (now_timestamp + (time_value * 3600)) | timestamp_custom('%H:%M', local=true) }}"
+                
+                - conditions: "{{ time_unit in ['seconden', 'seconde'] }}"
                   sequence:
                     - service: alarm_control_panel.set_alarm
                       target:
                         entity_id: alarm_control_panel.alarm_panel # VERVANG DIT!
                       data:
-                        time: "{{ (now_timestamp + time_value) | timestamp_custom('%H:%M', local=False) }}"
+                        time: "{{ (now_timestamp + time_value) | timestamp_custom('%H:%M', local=true) }}"
+                
                 - conditions: true
                   sequence:
                     - service: notify.persistent_notification
                       data:
                         message: "Ongeldige tijdseenheid. Gebruik 'minuten', 'uren' of 'seconden'."
                         title: "Wekker Notificatie"
-            - if:
-                - condition: template
-                  value_template: "{{ (now_timestamp + (time_value * 60)) | timestamp_custom('%H:%M', local=False) < now().timestamp() | timestamp_custom('%H:%M', local=False) }}"
-                - then:
-                    - service: notify.persistent_notification
-                      data:
-                        message: "De ingestelde tijd is in het verleden. Controleer de tijd en probeer het opnieuw."
-                        title: "Wekker Notificatie"
+            
+            - if: >-
+                {{ (now_timestamp + (time_value * 60)) | timestamp_custom('%H:%M', local=true) 
+                   < now() | timestamp_custom('%H:%M', local=true) }}
+              then:
+                - service: notify.persistent_notification
+                  data:
+                    message: "De ingestelde tijd is in het verleden. Controleer de tijd en probeer het opnieuw."
+                    title: "Wekker Notificatie"
+        
         - conditions: true
           sequence:
             - service: alarm_control_panel.set_alarm
               target:
                 entity_id: alarm_control_panel.alarm_panel # VERVANG DIT!
               data:
-                time: "{{ trigger.time }}"
+                time: "{{ trigger.slot_text.time }}"
+
     mode: single
