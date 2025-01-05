@@ -1,5 +1,5 @@
 """Helper functions for Alarm Clock integration."""
-from datetime import time, datetime
+from datetime import time
 import logging
 from dateparser import parse
 from homeassistant.util import dt as dt_util
@@ -24,19 +24,26 @@ def parse_time_string(time_str: str) -> time:
     _LOGGER.debug(f"Parsing time string: {time_str}")
 
     try:
-        # Try dateparser first - it handles multiple languages
+        # Get timezone string from Home Assistant
+        timezone_str = str(dt_util.DEFAULT_TIME_ZONE)
+        _LOGGER.debug(f"Using timezone: {timezone_str}")
+
+        # Use dateparser with Home Assistant timezone
         parsed_dt = parse(
             time_str,
             settings={
                 'RETURN_AS_TIMEZONE_AWARE': True,
-                'TIMEZONE': dt_util.DEFAULT_TIME_ZONE,
+                'TIMEZONE': timezone_str,
                 'PREFER_DATES_FROM': 'current_period',
+                'DATE_ORDER': 'DMY'
             }
         )
         
         if parsed_dt:
             _LOGGER.debug(f"Parsed with dateparser: {parsed_dt}")
-            return parsed_dt.time()
+            # Convert to local time if needed
+            local_dt = dt_util.as_local(parsed_dt)
+            return local_dt.time()
             
     except Exception as e:
         _LOGGER.debug(f"Dateparser failed: {e}")
