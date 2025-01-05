@@ -190,15 +190,15 @@ class AlarmClockDevice:
         
         return alarm_datetime
 
-    async def async_set_alarm(self, value: datetime | time | str) -> None:
-        """Set the alarm time and date."""
+    async def async_set_alarm(self, value: str | datetime | time) -> None:
+        """Set the alarm time and activate it."""
         _LOGGER.debug(f"Setting alarm with value: {value}, type: {type(value)}")
         try:
             # Convert string to time if needed
             if isinstance(value, str):
                 _LOGGER.debug(f"Parsing time string: {value}")
-                value = parse_time_string(value)
-                _LOGGER.debug(f"Parsed time: {value}")
+                value = parse_time_string(value, self.hass)
+                _LOGGER.debug(f"Parsed to: {value}")
             
             now = dt.now()
             
