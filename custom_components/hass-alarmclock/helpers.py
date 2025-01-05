@@ -1,6 +1,7 @@
 """Helper functions for Alarm Clock integration."""
 from datetime import time
 import logging
+import re
 from dateparser.date import DateDataParser
 from homeassistant.util import dt as dt_util
 from homeassistant.core import HomeAssistant
@@ -67,12 +68,12 @@ def parse_time_string(time_str: str, hass: HomeAssistant = None) -> time:
         
         # Define parser settings
         settings = {
-            'PREFER_LANGUAGE_DATE_ORDER': True,
-            'PREFER_DAY_OF_MONTH': 'current',
             'PREFER_DATES_FROM': 'current_period',
-            'REQUIRE_PARTS': ['hour'],
-            'SKIP_TOKENS': tokens_to_skip,
-            'NORMALIZE': True,
+            'PREFER_DAY_OF_MONTH': 'current',
+            'RETURN_AS_TIMEZONE_AWARE': True,
+            'TIMEZONE': timezone_str,
+            'RELATIVE_BASE': dt_util.now(),
+            'SKIP_TOKENS': tokens_to_skip
         }
 
         # Get parser with settings
@@ -99,11 +100,23 @@ def parse_time_string(time_str: str, hass: HomeAssistant = None) -> time:
     except ValueError:
         pass
 
-    # Final fallback for basic HH:MM format
+    # Try HH:MM format
     try:
         hour, minute = map(int, time_str.split(':'))
         if 0 <= hour <= 23 and 0 <= minute <= 59:
             return time(hour, minute)
+    except ValueError:
+        pass
+
+    # Final fallback for just hours (with optional non-digit characters)
+    try:
+        # Extract first number from string
+        hour_match = re.search(r'\d+', time_str)
+        if hour_match:
+            hour = int(hour_match.group())
+            if 0 <= hour <= 23:
+                _LOGGER.debug(f"Parsed hour-only value: {hour}:00")
+                return time(hour, 0)
     except ValueError:
         pass
 
