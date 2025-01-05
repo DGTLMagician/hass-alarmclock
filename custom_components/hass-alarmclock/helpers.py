@@ -1,45 +1,59 @@
 """Helper functions for Alarm Clock integration."""
-from datetime import time
-import re
+from datetime import time, datetime
+import logging
+from dateparser import parse
+from homeassistant.util import dt as dt_util
+
+_LOGGER = logging.getLogger(__name__)
 
 def parse_time_string(time_str: str) -> time:
     """Parse time string in various formats to time object.
     
-    Accepts:
-    - HH:MM:SS
-    - HH:MM
-    - H:MM
-    - HHMM
-    - H (single digit hour)
+    Uses dateparser for natural language processing in multiple languages.
+    Falls back to basic parsing for standard formats.
+    
+    Args:
+        time_str: Time string in any format (natural language or standard)
+        
+    Returns:
+        time object
     """
     # Remove any whitespace
     time_str = time_str.strip()
     
-    # Try to parse standard format first (HH:MM:SS)
+    _LOGGER.debug(f"Parsing time string: {time_str}")
+
     try:
+        # Try dateparser first - it handles multiple languages
+        parsed_dt = parse(
+            time_str,
+            settings={
+                'RETURN_AS_TIMEZONE_AWARE': True,
+                'TIMEZONE': dt_util.DEFAULT_TIME_ZONE,
+                'PREFER_DATES_FROM': 'current_period',
+            }
+        )
+        
+        if parsed_dt:
+            _LOGGER.debug(f"Parsed with dateparser: {parsed_dt}")
+            return parsed_dt.time()
+            
+    except Exception as e:
+        _LOGGER.debug(f"Dateparser failed: {e}")
+
+    # Fall back to basic format parsing
+    try:
+        # Try ISO format (HH:MM:SS)
         return time.fromisoformat(time_str)
     except ValueError:
         pass
-    
-    # Try to parse HH:MM or H:MM format
-    match = re.match(r'^(\d{1,2}):(\d{2})$', time_str)
-    if match:
-        hour, minute = map(int, match.groups())
+
+    # Final fallback for basic HH:MM format
+    try:
+        hour, minute = map(int, time_str.split(':'))
         if 0 <= hour <= 23 and 0 <= minute <= 59:
             return time(hour, minute)
-    
-    # Try to parse HHMM format
-    match = re.match(r'^(\d{2})(\d{2})$', time_str)
-    if match:
-        hour, minute = map(int, match.groups())
-        if 0 <= hour <= 23 and 0 <= minute <= 59:
-            return time(hour, minute)
-    
-    # Try to parse single digit hour
-    match = re.match(r'^(\d{1,2})$', time_str)
-    if match:
-        hour = int(match.group(1))
-        if 0 <= hour <= 23:
-            return time(hour, 0)
-    
-    raise ValueError(f"Invalid time format: {time_str}")
+    except ValueError:
+        pass
+
+    raise ValueError(f"Could not parse time string: {time_str}")
