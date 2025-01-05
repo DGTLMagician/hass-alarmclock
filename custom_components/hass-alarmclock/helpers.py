@@ -42,14 +42,18 @@ def parse_time_string(time_str: str, hass: HomeAssistant = None) -> time:
         
         _LOGGER.debug(f"Using timezone: {timezone_str}, language: {language}")
 
-        # Simple hour-only format (just a number)
-        if re.match(r'^\d+$', time_str):
-            hour = int(time_str)
+        # Extract numbers from the string
+        numbers = re.findall(r'\d+', time_str)
+        
+        # If we have exactly one number and the string doesn't contain ':'
+        # assume it's an hour
+        if len(numbers) == 1 and ':' not in time_str:
+            hour = int(numbers[0])
             if 0 <= hour <= 23:
-                _LOGGER.debug(f"Matched simple hour format: {hour}:00")
+                _LOGGER.debug(f"Extracted hour value: {hour}:00")
                 return time(hour, 0)
 
-        # Get parser for all other cases
+        # Get parser for more complex cases
         parser = get_parser(language)
         
         # Parse the date/time
@@ -58,7 +62,14 @@ def parse_time_string(time_str: str, hass: HomeAssistant = None) -> time:
         if date_data and date_data.date_obj:
             _LOGGER.debug(f"Successfully parsed with DateDataParser: {date_data.date_obj}")
             local_dt = dt_util.as_local(date_data.date_obj)
-            _LOGGER.debug(f"Converted to local time: {local_dt}")
+            
+            # If we got a full datetime but the original string only contained an hour,
+            # force minutes to 00
+            if len(numbers) == 1 and ':' not in time_str:
+                local_dt = local_dt.replace(minute=0, second=0, microsecond=0)
+                _LOGGER.debug(f"Forcing minutes to 00: {local_dt}")
+            
+            _LOGGER.debug(f"Final parsed time: {local_dt.time()}")
             return local_dt.time()
         else:
             _LOGGER.debug(f"DateDataParser could not parse string (locale detected: {date_data.locale if date_data else None})")
