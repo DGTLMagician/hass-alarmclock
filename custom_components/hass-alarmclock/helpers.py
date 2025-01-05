@@ -14,13 +14,15 @@ class Language:
                  name: str,
                  weekdays: list[str],
                  months: list[str],
-                 relative_words: dict[str, str],
-                 time_words: dict[str, str]):
+                 relative_words: dict[str, str | list[str]],
+                 time_words: dict[str, str | list[str]],
+                 prepositions: list[str]):
         self.name = name
         self.weekdays = weekdays
         self.months = months
         self.relative_words = relative_words
         self.time_words = time_words
+        self.prepositions = prepositions
 
 # Define supported languages
 LANGUAGES = {
@@ -30,29 +32,30 @@ LANGUAGES = {
         months=['january', 'february', 'march', 'april', 'may', 'june', 'july', 
                 'august', 'september', 'october', 'november', 'december'],
         relative_words={
-            'next': 'next',
-            'last': 'last',
-            'in': 'in',
-            'day': 'day',
-            'days': 'days',
-            'week': 'week',
-            'weeks': 'weeks',
             'today': 'today',
             'tomorrow': 'tomorrow',
-            'on': 'on'
+            'days_offset': {  # Map words to number of days
+                'day after tomorrow': 2,
+                'in 2 days': 2,
+                'in two days': 2,
+            },
+            'in': ['in', 'after'],
+            'days': ['day', 'days'],
+            'number_words': {  # For parsing written numbers
+                'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+                'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10
+            }
         },
         time_words={
-            'am': 'am',
-            'pm': 'pm',
-            'noon': 'noon',
-            'midnight': 'midnight',
             'at': 'at',
-            'hour': 'hour',
+            'hour': ['hour', 'hours'],
+            'minute': ['minute', 'minutes'],
             'morning': 'morning',
             'afternoon': 'afternoon',
             'evening': 'evening',
             'night': 'night'
-        }
+        },
+        prepositions=['for', 'on', 'at', 'in']
     ),
     'nl': Language(
         name='Dutch',
@@ -60,29 +63,30 @@ LANGUAGES = {
         months=['januari', 'februari', 'maart', 'april', 'mei', 'juni', 'juli',
                 'augustus', 'september', 'oktober', 'november', 'december'],
         relative_words={
-            'next': 'volgende',
-            'last': 'vorige|afgelopen',
-            'in': 'over',
-            'day': 'dag',
-            'days': 'dagen',
-            'week': 'week',
-            'weeks': 'weken',
             'today': 'vandaag',
             'tomorrow': 'morgen',
-            'on': 'op'
+            'days_offset': {
+                'overmorgen': 2,
+                'over 2 dagen': 2,
+                'over twee dagen': 2,
+            },
+            'in': ['over', 'na'],
+            'days': ['dag', 'dagen'],
+            'number_words': {
+                'een': 1, 'twee': 2, 'drie': 3, 'vier': 4, 'vijf': 5,
+                'zes': 6, 'zeven': 7, 'acht': 8, 'negen': 9, 'tien': 10
+            }
         },
         time_words={
-            'am': 'vm',
-            'pm': 'nm',
-            'noon': 'middag',
-            'midnight': 'middernacht',
             'at': 'om',
-            'hour': 'uur',
+            'hour': ['uur', 'uren'],
+            'minute': ['minuut', 'minuten'],
             'morning': 'ochtend',
             'afternoon': 'middag',
             'evening': 'avond',
             'night': 'nacht'
-        }
+        },
+        prepositions=['voor', 'op', 'om', 'in']
     )
 }
 
@@ -97,23 +101,75 @@ class DateTimeParser:
         self.lang = LANGUAGES[language]
         self.reference_date = dt_util.now().date()
 
-    def normalize_time_string(self, time_str: str) -> str:
-        """Normalize time string by removing language-specific words and noise."""
-        # Convert to lowercase and strip whitespace
-        text = time_str.lower().strip()
+    def normalize_date_string(self, date_str: str) -> tuple[str, str]:
+        """Normalize date string and extract time part."""
+        text = date_str.lower().strip()
         
-        # Remove all known time-related words
-        for word in self.lang.time_words.values():
-            text = text.replace(word, '').strip()
+        # Remove prepositions
+        for prep in self.lang.prepositions:
+            text = re.sub(rf'\b{prep}\b', ' ', text)
         
         # Remove multiple spaces
         text = ' '.join(text.split())
         
-        # Remove any non-essential characters (keeping numbers, colons, am/pm)
-        text = ''.join(c for c in text if c.isdigit() or c in ':apm ')
+        # Extract time part if present
+        time_part = None
+        at_word = self.lang.time_words['at']
+        if isinstance(at_word, list):
+            at_patterns = at_word
+        else:
+            at_patterns = [at_word]
         
-        _LOGGER.debug(f"Normalized '{time_str}' to '{text}'")
-        return text.strip()
+        for pattern in at_patterns:
+            if f" {pattern} " in text:
+                parts = text.split(f" {pattern} ")
+                text = parts[0]
+                if len(parts) > 1:
+                    time_part = parts[1]
+                break
+        
+        return text.strip(), time_part
+
+    def parse_relative_date(self, text: str) -> date | None:
+        """Parse relative date expressions using language configuration."""
+        # Check direct matches (today, tomorrow)
+        if text == self.lang.relative_words['today']:
+            return self.reference_date
+        if text == self.lang.relative_words['tomorrow']:
+            return self.reference_date + timedelta(days=1)
+        
+        # Check predefined offsets
+        for expr, days in self.lang.relative_words.get('days_offset', {}).items():
+            if expr in text:
+                return self.reference_date + timedelta(days=days)
+        
+        # Parse "in X days" pattern using both numeric and word numbers
+        number_words = self.lang.relative_words.get('number_words', {})
+        in_words = self.lang.relative_words['in']
+        day_words = self.lang.relative_words['days']
+        
+        if isinstance(in_words, str):
+            in_words = [in_words]
+        if isinstance(day_words, str):
+            day_words = [day_words]
+        
+        for in_word in in_words:
+            for day_word in day_words:
+                # Try numeric pattern
+                pattern = fr'{in_word}\s+(\d+)\s+{day_word}'
+                match = re.search(pattern, text)
+                if match:
+                    days = int(match.group(1))
+                    return self.reference_date + timedelta(days=days)
+                
+                # Try word pattern
+                pattern = fr'{in_word}\s+(\w+)\s+{day_word}'
+                match = re.search(pattern, text)
+                if match and match.group(1) in number_words:
+                    days = number_words[match.group(1)]
+                    return self.reference_date + timedelta(days=days)
+        
+        return None
 
     def parse_time(self, time_str: str) -> time:
         """Parse time string and return time object."""
@@ -176,52 +232,56 @@ class DateTimeParser:
     def parse_date(self, date_str: str) -> date:
         """Parse date string and return date object."""
         date_str = date_str.lower().strip()
-
-        # Check for relative dates
-        if date_str == self.lang.relative_words['today']:
-            return self.reference_date
-        if date_str == self.lang.relative_words['tomorrow']:
-            return self.reference_date + timedelta(days=1)
-
-        # Check for "in X days/weeks"
-        in_pattern = f"{self.lang.relative_words['in']}\\s+(\\d+)\\s+({self.lang.relative_words['days']}|{self.lang.relative_words['weeks']})"
-        match = re.match(in_pattern, date_str)
-        if match:
-            amount = int(match.group(1))
-            unit = match.group(2)
-            if unit == self.lang.relative_words['weeks']:
-                amount *= 7
-            return self.reference_date + timedelta(days=amount)
-
-        # Check for next weekday
-        for i, day in enumerate(self.lang.weekdays):
-            if date_str == day or date_str == f"{self.lang.relative_words['next']} {day}":
-                days_ahead = (i - self.reference_date.weekday()) % 7
-                if days_ahead == 0:
-                    days_ahead = 7
-                return self.reference_date + timedelta(days=days_ahead)
-
-        # Check for specific date (e.g., "5 january")
+        
+        # First try relative date parsing
+        relative_date = self.parse_relative_date(date_str)
+        if relative_date:
+            return relative_date
+        
+        # Check for specific date (e.g., "5 january" or "january 5")
         for i, month in enumerate(self.lang.months, 1):
-            pattern = f"(\\d{{1,2}})\\s+{month}"
+            # Pattern for both "5 january" and "january 5"
+            patterns = [
+                fr"(\d{{1,2}})\s+{month}",
+                fr"{month}\s+(\d{{1,2}})"
+            ]
+            
+            for pattern in patterns:
+                match = re.search(pattern, date_str)
+                if match:
+                    day = int(match.group(1))
+                    year = self.reference_date.year
+                    try:
+                        result = date(year, i, day)
+                        # If the date is in the past, use next year
+                        if result < self.reference_date:
+                            result = date(year + 1, i, day)
+                        return result
+                    except ValueError as e:
+                        raise ValueError(f"Invalid date: {e}")
+        
+        # Check for numeric date (8-1 or 8/1 or 8-01 etc)
+        patterns = [
+            r'(\d{1,2})[-/\s](\d{1,2})(?:[-/\s](\d{2,4}))?',
+        ]
+        
+        for pattern in patterns:
             match = re.match(pattern, date_str)
             if match:
                 day = int(match.group(1))
-                year = self.reference_date.year
+                month = int(match.group(2))
+                year = int(match.group(3)) if match.group(3) else self.reference_date.year
+                if year < 100:
+                    year += 2000
                 try:
-                    result = date(year, i, day)
-                    # If the date is in the past, use next year
+                    result = date(year, month, day)
                     if result < self.reference_date:
-                        result = date(year + 1, i, day)
+                        result = date(year + 1, month, day)
                     return result
-                except ValueError as e:
-                    raise ValueError(f"Invalid date: {e}")
-
-        try:
-            parsed_date = dateutil_parser.parse(date_str).date()
-            return parsed_date
-        except ValueError:
-            raise ValueError(f"Could not parse date: {date_str}")
+                except ValueError:
+                    continue
+        
+        raise ValueError(f"Could not parse date: {date_str}")
 
     def parse(self, text: str) -> tuple[date, time]:
         """Parse full date/time string."""
