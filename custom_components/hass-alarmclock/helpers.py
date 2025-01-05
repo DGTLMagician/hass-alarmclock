@@ -162,7 +162,15 @@ class DateTimeParser:
         """Parse full date/time string."""
         text = text.lower().strip()
         
-        # Split on time indicator if present
+        # First try to parse as just a time
+        try:
+            time_obj = self.parse_time(text)
+            _LOGGER.debug(f"Parsed as time only: {time_obj}")
+            return self.reference_date, time_obj
+        except ValueError:
+            pass
+        
+        # If that fails, try to split date and time
         date_str = text
         time_str = None
         
@@ -174,10 +182,6 @@ class DateTimeParser:
             parts = text.split(f" {at_word} ")
             if len(parts) == 2:
                 date_str, time_str = parts
-        # If no specific time split found, look for just a time
-        elif any(p in text for p in [':', 'am', 'pm']):
-            time_str = text
-            date_str = self.lang.relative_words['today']
         
         # Clean up date string if it starts with 'on'
         if date_str.startswith(f"{on_word} "):
@@ -186,11 +190,18 @@ class DateTimeParser:
         _LOGGER.debug(f"Parsing date: '{date_str}' and time: '{time_str}'")
         
         # Parse date and time
-        parsed_date = self.parse_date(date_str)
+        try:
+            parsed_date = self.parse_date(date_str)
+        except ValueError:
+            # If no valid date found and we have a time, use today
+            if time_str:
+                parsed_date = self.reference_date
+            else:
+                raise
+        
         parsed_time = self.parse_time(time_str) if time_str else time(0, 0)
         
-        return parsed_date, parsed_time
-
+    return parsed_date, parsed_time
     def _parse_24h_time(self, match) -> tuple[int, int]:
         hour = int(match.group(1))
         minute = int(match.group(2))
