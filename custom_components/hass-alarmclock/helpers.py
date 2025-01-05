@@ -45,7 +45,8 @@ LANGUAGES = {
             'pm': 'pm',
             'noon': 'noon',
             'midnight': 'midnight',
-            'at': 'at'
+            'at': 'at',
+            'hour': 'hour'
         }
     ),
     'nl': Language(
@@ -70,7 +71,8 @@ LANGUAGES = {
             'pm': 'nm',
             'noon': 'middag',
             'midnight': 'middernacht',
-            'at': 'om'
+            'at': 'om',
+            'hour': 'uur'
         }
     )
 }
@@ -89,6 +91,10 @@ class DateTimeParser:
     def parse_time(self, time_str: str) -> time:
         """Parse time string and return time object."""
         time_str = time_str.lower().strip()
+        
+        # Remove language-specific words like 'uur'
+        for word in self.lang.time_words.values():
+            time_str = time_str.replace(word, '').strip()
 
         # Time patterns
         patterns = {
@@ -99,14 +105,13 @@ class DateTimeParser:
             # Simple 12-hour (3pm, 11am)
             r'(\d{1,2})\s*(am|pm)': self._parse_simple_12h,
             # Simple hour only (15, 09, 9)
-            r'^(\d{1,2})(?:\s+|$)': self._parse_simple_24h,
-            self.lang.time_words['noon']: lambda _: (12, 0),
-            self.lang.time_words['midnight']: lambda _: (0, 0),
+            r'^(\d{1,2})$': self._parse_simple_24h,
         }
         
         for pattern, parser in patterns.items():
             match = re.match(f'^{pattern}$', time_str)
             if match:
+                _LOGGER.debug(f"Matched time pattern: {pattern}")
                 hour, minute = parser(match)
                 return time(hour, minute)
 
@@ -162,15 +167,7 @@ class DateTimeParser:
         """Parse full date/time string."""
         text = text.lower().strip()
         
-        # First try to parse as just a time
-        try:
-            time_obj = self.parse_time(text)
-            _LOGGER.debug(f"Parsed as time only: {time_obj}")
-            return self.reference_date, time_obj
-        except ValueError:
-            pass
-        
-        # If that fails, try to split date and time
+        # Split date and time if present
         date_str = text
         time_str = None
         
@@ -190,18 +187,11 @@ class DateTimeParser:
         _LOGGER.debug(f"Parsing date: '{date_str}' and time: '{time_str}'")
         
         # Parse date and time
-        try:
-            parsed_date = self.parse_date(date_str)
-        except ValueError:
-            # If no valid date found and we have a time, use today
-            if time_str:
-                parsed_date = self.reference_date
-            else:
-                raise
-        
+        parsed_date = self.parse_date(date_str)
         parsed_time = self.parse_time(time_str) if time_str else time(0, 0)
+        
         return parsed_date, parsed_time
-    
+
     def _parse_24h_time(self, match) -> tuple[int, int]:
         hour = int(match.group(1))
         minute = int(match.group(2))
@@ -253,4 +243,18 @@ def parse_string(text: str, hass: HomeAssistant = None) -> tuple[date, time]:
     _LOGGER.debug(f"Parsing string: {text} with language: {language}")
     
     parser = DateTimeParser(language)
-    return parser.parse(text)
+    
+    # First try to parse as just a time
+    try:
+        time_obj = parser.parse_time(text)
+        _LOGGER.debug(f"Successfully parsed time: {time_obj}")
+        return dt_util.now().date(), time_obj
+    except ValueError as e:
+        _LOGGER.debug(f"Time-only parsing failed: {e}, trying full date-time parsing")
+        
+    # If that fails, try full date-time parsing
+    try:
+        return parser.parse(text)
+    except ValueError as e:
+        _LOGGER.debug(f"Full date-time parsing failed: {e}")
+        raise
