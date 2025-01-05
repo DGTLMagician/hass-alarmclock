@@ -191,48 +191,35 @@ class AlarmClockDevice:
         return alarm_datetime
 
     async def async_set_alarm(self, value: str | datetime | time) -> None:
-        """Set the alarm time and activate it."""
+        """Set the alarm time and date."""
         _LOGGER.debug(f"Setting alarm with value: {value}, type: {type(value)}")
         try:
-            # Convert string to time if needed
+            # Convert string to time/date if needed
             if isinstance(value, str):
-                _LOGGER.debug(f"Parsing time string: {value}")
-                value = parse_time_string(value, self.hass)
-                _LOGGER.debug(f"Parsed to: {value}")
-            
-            now = dt.now()
-            
-            # If it's just a time, combine with today's date
-            if isinstance(value, time):
-                value = datetime.combine(now.date(), value)
-                
-            # Convert to local time if needed
-            alarm_datetime = dt.as_local(value)
-            
-            # Ensure alarm is in the future
-            alarm_datetime = self._ensure_future_time(alarm_datetime)
-            
-            # Store original alarm time and date
-            self._original_alarm_time = alarm_datetime.time()
-            self._original_alarm_date = alarm_datetime.date()
-            
+                _LOGGER.debug(f"Parsing string: {value}")
+                alarm_date, alarm_time = parse_string(value, self.hass)
+                self._original_alarm_date = alarm_date
+                self._original_alarm_time = alarm_time
+            elif isinstance(value, datetime):
+                self._original_alarm_date = value.date()
+                self._original_alarm_time = value.time()
+            else:
+                # If only time is provided, use today's date
+                self._original_alarm_date = dt_util.now().date()
+                self._original_alarm_time = value
+
             # Set current alarm time and date
-            self._alarm_time = self._original_alarm_time
             self._alarm_date = self._original_alarm_date
-            
-            # Reset snooze end time
-            self._snooze_end_time = None
+            self._alarm_time = self._original_alarm_time
             
             # Activate alarm
             self._is_active = True
             self._status = STATE_SET
             
-            # Force an immediate update of the countdown coordinator
+            # Force countdown update
             await self._countdown_coordinator.async_refresh()
-            
-            # Notify entities of the update
             self._notify_update()
-            
+                
         except ValueError as ex:
             raise HomeAssistantError(f"Invalid time format: {ex}")
             
