@@ -21,32 +21,12 @@ SKIP_TOKENS = {
     'it': ['ora', 'ore'],
 }
 
-def create_parser_key(language: str, settings: dict = None) -> str:
-    """Create a unique key for parser caching."""
-    if not settings:
-        return language
-    
-    # Convert any lists in settings to tuples for hashing
-    hashable_settings = {}
-    for key, value in settings.items():
-        if isinstance(value, list):
-            hashable_settings[key] = tuple(value)
-        else:
-            hashable_settings[key] = value
-    
-    return f"{language}_{hash(frozenset(hashable_settings.items()))}"
-
-def get_parser(language: str, settings: dict = None) -> DateDataParser:
+def get_parser(language: str) -> DateDataParser:
     """Get or create a DateDataParser instance for the given language."""
-    parser_key = create_parser_key(language, settings)
-    
-    if parser_key not in _parsers:
-        _LOGGER.debug(f"Creating new DateDataParser for language: {language} with settings: {settings}")
-        _parsers[parser_key] = DateDataParser(
-            languages=[language],
-            settings=settings
-        )
-    return _parsers[parser_key]
+    if language not in _parsers:
+        _LOGGER.debug(f"Creating new DateDataParser for language: {language}")
+        _parsers[language] = DateDataParser(languages=[language])
+    return _parsers[language]
 
 def parse_time_string(time_str: str, hass: HomeAssistant = None) -> time:
     """Parse time string in various formats to time object."""
@@ -66,21 +46,20 @@ def parse_time_string(time_str: str, hass: HomeAssistant = None) -> time:
         tokens_to_skip = SKIP_TOKENS.get(language, [])
         _LOGGER.debug(f"Skipping tokens for language {language}: {tokens_to_skip}")
         
-        # Define parser settings
-        settings = {
-            'PREFER_DATES_FROM': 'current_period',
-            'PREFER_DAY_OF_MONTH': 'current',
-            'RETURN_AS_TIMEZONE_AWARE': True,
-            'TIMEZONE': timezone_str,
-            'RELATIVE_BASE': dt_util.now(),
-            'SKIP_TOKENS': tokens_to_skip
-        }
-
-        # Get parser with settings
-        parser = get_parser(language, settings)
+        # Get parser without settings first
+        parser = get_parser(language)
         
         # Parse the date/time
-        date_data = parser.get_date_data(time_str)
+        date_data = parser.get_date_data(
+            time_str,
+            date_formats=['%H:%M', '%H:%M:%S', '%H'],
+            settings={
+                'TIMEZONE': timezone_str,
+                'RETURN_TIME_AS_PERIOD': False,
+                'TO_TIMEZONE': timezone_str,
+                'SKIP_TOKENS': tokens_to_skip
+            }
+        )
         
         if date_data and date_data.date_obj:
             _LOGGER.debug(f"Successfully parsed with DateDataParser: {date_data.date_obj}")
@@ -92,13 +71,6 @@ def parse_time_string(time_str: str, hass: HomeAssistant = None) -> time:
             
     except Exception as e:
         _LOGGER.debug(f"DateDataParser failed with error: {str(e)}")
-
-    # Fall back to basic format parsing
-    try:
-        # Try ISO format (HH:MM:SS)
-        return time.fromisoformat(time_str)
-    except ValueError:
-        pass
 
     # Try HH:MM format
     try:
