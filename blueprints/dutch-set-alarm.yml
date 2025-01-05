@@ -29,7 +29,6 @@ blueprint:
         - "Maak me morgen wakker om {time}"
 
   action:
-    mode: single
     sequence:
       - choose:
           - conditions: "{{ 'over' in trigger.slot_text.time }}"
@@ -85,3 +84,4 @@ blueprint:
                 entity_id: !input alarm_entity
               data:
                 time: "{{ trigger.slot_text.time }}"
+mode: single
