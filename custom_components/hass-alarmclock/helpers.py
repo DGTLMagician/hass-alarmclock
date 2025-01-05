@@ -1,8 +1,7 @@
+"""Helper functions for Alarm Clock integration."""
 from datetime import time, datetime, date, timedelta
 import logging
 import re
-import dateparser
-from dateutil import parser as dateutil_parser
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
 
@@ -130,46 +129,25 @@ class DateTimeParser:
         
         return text.strip(), time_part
 
-    def parse_relative_date(self, text: str) -> date | None:
-        """Parse relative date expressions using language configuration."""
-        # Check direct matches (today, tomorrow)
-        if text == self.lang.relative_words['today']:
-            return self.reference_date
-        if text == self.lang.relative_words['tomorrow']:
-            return self.reference_date + timedelta(days=1)
+    def normalize_time_string(self, time_str: str) -> str:
+        """Normalize time string by removing language-specific words."""
+        text = time_str.lower().strip()
         
-        # Check predefined offsets
-        for expr, days in self.lang.relative_words.get('days_offset', {}).items():
-            if expr in text:
-                return self.reference_date + timedelta(days=days)
+        # Remove all time-related words
+        for word_list in self.lang.time_words.values():
+            if isinstance(word_list, list):
+                for word in word_list:
+                    text = text.replace(word, '').strip()
+            else:
+                text = text.replace(word_list, '').strip()
         
-        # Parse "in X days" pattern using both numeric and word numbers
-        number_words = self.lang.relative_words.get('number_words', {})
-        in_words = self.lang.relative_words['in']
-        day_words = self.lang.relative_words['days']
+        # Remove multiple spaces
+        text = ' '.join(text.split())
         
-        if isinstance(in_words, str):
-            in_words = [in_words]
-        if isinstance(day_words, str):
-            day_words = [day_words]
+        # Keep only relevant characters
+        text = ''.join(c for c in text if c.isdigit() or c in ':apm ')
         
-        for in_word in in_words:
-            for day_word in day_words:
-                # Try numeric pattern
-                pattern = fr'{in_word}\s+(\d+)\s+{day_word}'
-                match = re.search(pattern, text)
-                if match:
-                    days = int(match.group(1))
-                    return self.reference_date + timedelta(days=days)
-                
-                # Try word pattern
-                pattern = fr'{in_word}\s+(\w+)\s+{day_word}'
-                match = re.search(pattern, text)
-                if match and match.group(1) in number_words:
-                    days = number_words[match.group(1)]
-                    return self.reference_date + timedelta(days=days)
-        
-        return None
+        return text.strip()
 
     def parse_time(self, time_str: str) -> time:
         """Parse time string and return time object."""
@@ -228,6 +206,47 @@ class DateTimeParser:
                     continue
 
         raise ValueError(f"Could not parse time: {time_str}")
+
+    def parse_relative_date(self, text: str) -> date | None:
+        """Parse relative date expressions using language configuration."""
+        # Check direct matches (today, tomorrow)
+        if text == self.lang.relative_words['today']:
+            return self.reference_date
+        if text == self.lang.relative_words['tomorrow']:
+            return self.reference_date + timedelta(days=1)
+        
+        # Check predefined offsets
+        for expr, days in self.lang.relative_words.get('days_offset', {}).items():
+            if expr in text:
+                return self.reference_date + timedelta(days=days)
+        
+        # Parse "in X days" pattern using both numeric and word numbers
+        number_words = self.lang.relative_words.get('number_words', {})
+        in_words = self.lang.relative_words['in']
+        day_words = self.lang.relative_words['days']
+        
+        if isinstance(in_words, str):
+            in_words = [in_words]
+        if isinstance(day_words, str):
+            day_words = [day_words]
+        
+        for in_word in in_words:
+            for day_word in day_words:
+                # Try numeric pattern
+                pattern = fr'{in_word}\s+(\d+)\s+{day_word}'
+                match = re.search(pattern, text)
+                if match:
+                    days = int(match.group(1))
+                    return self.reference_date + timedelta(days=days)
+                
+                # Try word pattern
+                pattern = fr'{in_word}\s+(\w+)\s+{day_word}'
+                match = re.search(pattern, text)
+                if match and match.group(1) in number_words:
+                    days = number_words[match.group(1)]
+                    return self.reference_date + timedelta(days=days)
+        
+        return None
 
     def parse_date(self, date_str: str) -> date:
         """Parse date string and return date object."""
@@ -290,48 +309,43 @@ class DateTimeParser:
         # First try to parse as just a time
         try:
             time_obj = self.parse_time(text)
-            _LOGGER.debug(f"Successfully parsed as time-only: {time_obj}")
-            return dt_util.now().date(), time_obj
-        except ValueError as e:
-            _LOGGER.debug(f"Not a simple time: {e}")
+            _LOGGER.debug(f"Parsed as time only: {time_obj}")
+            return self._get_appropriate_date(time_obj), time_obj
+        except ValueError:
+            pass
         
-        # Split date and time if present
-        date_str = text
-        time_str = None
+        # Then try to parse date with optional time
+        date_str, time_str = self.normalize_date_string(text)
         
-        at_word = self.lang.time_words['at']
-        on_word = self.lang.relative_words['on']
+        # Parse the date part
+        date_obj = self.parse_date(date_str)
         
-        # Try to extract time part
-        if f" {at_word} " in text:
-            parts = text.split(f" {at_word} ")
-            if len(parts) == 2:
-                date_str, time_str = parts
-        
-        # Clean up date string if it starts with 'on'
-        if date_str.startswith(f"{on_word} "):
-            date_str = date_str[len(f"{on_word} "):]
-        
-        _LOGGER.debug(f"Parsing date: '{date_str}' and time: '{time_str}'")
-        
+        # Parse the time part if present, otherwise use default
         try:
-            parsed_date = self.parse_date(date_str)
-        except ValueError as e:
             if time_str:
-                # If we found a time part but date parsing failed, use today
-                parsed_date = self.reference_date
-                _LOGGER.debug(f"Using today's date: {parsed_date}")
+                time_obj = self.parse_time(time_str)
             else:
-                _LOGGER.debug(f"Date parsing failed: {e}")
-                raise
-
-        try:
-            parsed_time = self.parse_time(time_str if time_str else date_str)
+                # If no time specified but we have a relative date, use current time
+                if date_obj > self.reference_date:
+                    time_obj = dt_util.now().time()
+                else:
+                    time_obj = time(0, 0)  # Default to midnight
         except ValueError as e:
             _LOGGER.debug(f"Time parsing failed: {e}")
-            raise
+            time_obj = time(0, 0)  # Default to midnight
         
-        return parsed_date, parsed_time
+        return date_obj, time_obj
+
+    def _get_appropriate_date(self, time_obj: time) -> date:
+        """Get appropriate date based on the time (today or tomorrow)."""
+        now = dt_util.now()
+        date_obj = now.date()
+        
+        # If the time is earlier than now, use tomorrow
+        if time_obj.hour < now.hour or (time_obj.hour == now.hour and time_obj.minute <= now.minute):
+            date_obj += timedelta(days=1)
+        
+        return date_obj
 
 def parse_string(text: str, hass: HomeAssistant = None) -> tuple[date, time]:
     """Parse date/time string using system language."""
