@@ -200,7 +200,6 @@ class DateTimeParser:
                 raise
         
         parsed_time = self.parse_time(time_str) if time_str else time(0, 0)
-        
         return parsed_date, parsed_time
     
     def _parse_24h_time(self, match) -> tuple[int, int]:
