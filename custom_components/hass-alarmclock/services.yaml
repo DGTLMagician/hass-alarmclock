@@ -1,4 +1,4 @@
-set_alarm_time:
+set_alarm:
   name: Set Alarm
   description: Set the alarm time and activate the alarm.
   fields:
@@ -10,11 +10,13 @@ set_alarm_time:
           domain: switch
     time:
       name: Time
-      description: "The time to set the alarm for (format: HH:MM or HH:MM:SS)"
+      description: >
+        Time to set the alarm for.
+        Supports both time picker and text input (e.g., "7:00" or "7 in the morning")
       required: true
       example: "07:00"
       selector:
-        time:
+        text:
 
 snooze:
   name: Snooze Alarm

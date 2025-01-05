@@ -24,10 +24,45 @@ _LOGGER = logging.getLogger(__name__)
 
 CONFIG_SCHEMA = vol.Schema({DOMAIN: vol.Schema({})}, extra=vol.ALLOW_EXTRA)
 
+async def async_unregister_services(hass: HomeAssistant) -> None:
+    """Unregister services."""
+    _LOGGER.debug("Unregistering alarm clock services")
+    services = ["set_alarm", "snooze", "stop"]
+    for service in services:
+        if hass.services.has_service(DOMAIN, service):
+            _LOGGER.debug(f"Removing service: {DOMAIN}.{service}")
+            hass.services.async_remove(DOMAIN, service)
+
+async def async_register_services(hass: HomeAssistant) -> None:
+    """Register services."""
+    _LOGGER.debug("Registering alarm clock services")
+    
+    # Unregister existing services first
+    await async_unregister_services(hass)
+    
+    # Register services
+    hass.services.async_register(DOMAIN, "set_alarm", handle_set_alarm)
+    hass.services.async_register(DOMAIN, "snooze", handle_snooze)
+    hass.services.async_register(DOMAIN, "stop", handle_stop)
+
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up the Alarm Clock component."""
     hass.data.setdefault(DOMAIN, {})
+    
+    # Register services
+    await async_register_services(hass)
     return True
+
+async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Unload a config entry."""
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unload_ok:
+        hass.data[DOMAIN].pop(entry.entry_id)
+        
+        # Check if this is the last entry
+        if not hass.data[DOMAIN]:
+            # Unregister services if this is the last entry
+            await async_unregister_services(hass)
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Alarm Clock from a config entry."""
@@ -120,11 +155,3 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.services.async_register(DOMAIN, "stop", handle_stop)
 
     return True
-
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Unload a config entry."""
-    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-    if unload_ok:
-        hass.data[DOMAIN].pop(entry.entry_id)
-
-    return unload_ok
