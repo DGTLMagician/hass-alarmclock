@@ -19,7 +19,7 @@ from .const import (
     STATE_TRIGGERED,
     STATE_SNOOZED,
 )
-from .helpers import parse_time_string
+from .helpers import parse_string
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -153,7 +153,7 @@ class AlarmClockDevice:
         try:
             # Convert string to time if needed
             if isinstance(value, str):
-                value = parse_time_string(value)
+                value = parse_string(value)
             
             # Convert time to datetime if needed
             if isinstance(value, time):
