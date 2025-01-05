@@ -97,30 +97,81 @@ class DateTimeParser:
         self.lang = LANGUAGES[language]
         self.reference_date = dt_util.now().date()
 
-    def parse_time(self, time_str: str) -> time:
-        time_str = time_str.lower().strip()
+    def normalize_time_string(self, time_str: str) -> str:
+        """Normalize time string by removing language-specific words and noise."""
+        # Convert to lowercase and strip whitespace
+        text = time_str.lower().strip()
+        
+        # Remove all known time-related words
+        for word in self.lang.time_words.values():
+            text = text.replace(word, '').strip()
+        
+        # Remove multiple spaces
+        text = ' '.join(text.split())
+        
+        # Remove any non-essential characters (keeping numbers, colons, am/pm)
+        text = ''.join(c for c in text if c.isdigit() or c in ':apm ')
+        
+        _LOGGER.debug(f"Normalized '{time_str}' to '{text}'")
+        return text.strip()
 
-        # Regex patterns (examples)
+    def parse_time(self, time_str: str) -> time:
+        """Parse time string and return time object."""
+        if not time_str:
+            raise ValueError("Empty time string")
+
+        # First normalize the string
+        cleaned = self.normalize_time_string(time_str)
+        _LOGGER.debug(f"Parsing normalized time: {cleaned}")
+
+        # Define patterns from simplest to most complex
         patterns = [
-            r"(\d{1,2}):(\d{2})\s*(am|pm)",  # 12-hour format
-            r"(\d{1,2}):(\d{2})",           # 24-hour format
-            r"(\d{1,2})\s*(am|pm)",        # Simple 12-hour format
-            r"^(\d{1,2})$"                 # Simple hour only
+            # Basic patterns
+            {
+                'pattern': r'^(\d{1,2})$',  # Single number (7)
+                'handler': lambda m: time(int(m.group(1)), 0)
+            },
+            {
+                'pattern': r'^(\d{1,2}):(\d{2})$',  # HH:MM (7:30)
+                'handler': lambda m: time(int(m.group(1)), int(m.group(2)))
+            },
+            {
+                'pattern': r'^(\d{1,2})(\d{2})$',  # HHMM (730)
+                'handler': lambda m: time(int(m.group(1)), int(m.group(2)))
+            },
+            
+            # 12-hour patterns
+            {
+                'pattern': r'^(\d{1,2})\s*([ap])m?$',  # 7pm
+                'handler': lambda m: time(
+                    (int(m.group(1)) % 12) + (12 if m.group(2) == 'p' else 0), 
+                    0
+                )
+            },
+            {
+                'pattern': r'^(\d{1,2}):(\d{2})\s*([ap])m?$',  # 7:30pm
+                'handler': lambda m: time(
+                    (int(m.group(1)) % 12) + (12 if m.group(2) == 'p' else 0),
+                    int(m.group(2))
+                )
+            }
         ]
 
-        for pattern in patterns:
-            match = re.match(pattern, time_str)
+        # Try each pattern
+        for p in patterns:
+            match = re.match(p['pattern'], cleaned)
             if match:
                 try:
-                    parsed_time = dateutil_parser.parse(time_str).time()
-                    return parsed_time
-                except ValueError:
-                    pass #dateutil failed to parse, continue with other methods
-        try:
-            parsed_time = dateutil_parser.parse(time_str).time()
-            return parsed_time
-        except ValueError:
-            raise ValueError(f"Could not parse time: {time_str}")
+                    result = p['handler'](match)
+                    # Validate the resulting time
+                    if 0 <= result.hour <= 23 and 0 <= result.minute <= 59:
+                        _LOGGER.debug(f"Successfully parsed time: {result}")
+                        return result
+                except (ValueError, IndexError) as e:
+                    _LOGGER.debug(f"Failed to handle match: {e}")
+                    continue
+
+        raise ValueError(f"Could not parse time: {time_str}")
 
     def parse_date(self, date_str: str) -> date:
         """Parse date string and return date object."""
