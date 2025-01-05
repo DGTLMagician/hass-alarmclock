@@ -1,16 +1,26 @@
 """Helper functions for Alarm Clock integration."""
 from datetime import time
 import logging
-from dateparser import parse
+from dateparser.date import DateDataParser
 from homeassistant.util import dt as dt_util
 from homeassistant.core import HomeAssistant
 
 _LOGGER = logging.getLogger(__name__)
 
+# Cache the parser instances per language
+_parsers = {}
+
+def get_parser(language: str) -> DateDataParser:
+    """Get or create a DateDataParser instance for the given language."""
+    if language not in _parsers:
+        _LOGGER.debug(f"Creating new DateDataParser for language: {language}")
+        _parsers[language] = DateDataParser(languages=[language])
+    return _parsers[language]
+
 def parse_time_string(time_str: str, hass: HomeAssistant = None) -> time:
     """Parse time string in various formats to time object.
     
-    Uses dateparser with the system language from Home Assistant.
+    Uses DateDataParser with the system language from Home Assistant.
     Falls back to basic parsing for standard formats.
     
     Args:
@@ -30,43 +40,29 @@ def parse_time_string(time_str: str, hass: HomeAssistant = None) -> time:
         timezone_str = str(dt_util.DEFAULT_TIME_ZONE)
         
         # Get language from Home Assistant
-        language = None
+        language = 'en'  # Default to English
         if hass:
             language = hass.config.language
         
         _LOGGER.debug(f"Using timezone: {timezone_str}, language: {language}")
 
-        # Prepare dateparser settings
-        settings = {
-            'RETURN_AS_TIMEZONE_AWARE': True,
-            'TIMEZONE': timezone_str,
-            'PREFER_DATES_FROM': 'current_period',
-            'DATE_ORDER': 'DMY',
-            'PREFER_DAY_OF_MONTH': 'current',
-            'STRICT_PARSING': False
-        }
+        # Get parser for this language
+        parser = get_parser(language)
         
-        # Add language if available
-        if language:
-            settings['LANGUAGES'] = [language]
-            
-        # Use dateparser with settings
-        parsed_dt = parse(
-            time_str,
-            settings=settings
-        )
+        # Parse the date/time
+        date_data = parser.get_date_data(time_str)
         
-        if parsed_dt:
-            _LOGGER.debug(f"Successfully parsed with dateparser: {parsed_dt}")
+        if date_data and date_data.date_obj:
+            _LOGGER.debug(f"Successfully parsed with DateDataParser: {date_data.date_obj}")
             # Convert to local time if needed
-            local_dt = dt_util.as_local(parsed_dt)
+            local_dt = dt_util.as_local(date_data.date_obj)
             _LOGGER.debug(f"Converted to local time: {local_dt}")
             return local_dt.time()
         else:
-            _LOGGER.debug("Dateparser returned None")
+            _LOGGER.debug(f"DateDataParser could not parse string (locale detected: {date_data.locale if date_data else None})")
             
     except Exception as e:
-        _LOGGER.debug(f"Dateparser failed with error: {str(e)}")
+        _LOGGER.debug(f"DateDataParser failed with error: {str(e)}")
 
     # Fall back to basic format parsing
     try:
