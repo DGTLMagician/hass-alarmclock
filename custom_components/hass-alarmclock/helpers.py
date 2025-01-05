@@ -10,6 +10,17 @@ _LOGGER = logging.getLogger(__name__)
 # Cache the parser instances per language
 _parsers = {}
 
+# Define tokens to skip per language
+SKIP_TOKENS = {
+    'nl': ['uur'],
+    'en': ['hour', 'hours'],
+    'de': ['uhr'],
+    'fr': ['heure', 'heures'],
+    'es': ['hora', 'horas'],
+    'it': ['ora', 'ore'],
+    # Add more languages as needed
+}
+
 def get_parser(language: str) -> DateDataParser:
     """Get or create a DateDataParser instance for the given language."""
     if language not in _parsers:
@@ -18,28 +29,13 @@ def get_parser(language: str) -> DateDataParser:
     return _parsers[language]
 
 def parse_time_string(time_str: str, hass: HomeAssistant = None) -> time:
-    """Parse time string in various formats to time object.
-    
-    Uses DateDataParser with the system language from Home Assistant.
-    Falls back to basic parsing for standard formats.
-    
-    Args:
-        time_str: Time string in any format (natural language or standard)
-        hass: HomeAssistant instance for language detection
-        
-    Returns:
-        time object
-    """
-    # Remove any whitespace
+    """Parse time string in various formats to time object."""
     time_str = time_str.strip()
     
     _LOGGER.debug(f"Parsing time string: {time_str}")
 
     try:
-        # Get timezone string from Home Assistant
         timezone_str = str(dt_util.DEFAULT_TIME_ZONE)
-        
-        # Get language from Home Assistant
         language = 'en'  # Default to English
         if hass:
             language = hass.config.language
@@ -49,12 +45,25 @@ def parse_time_string(time_str: str, hass: HomeAssistant = None) -> time:
         # Get parser for this language
         parser = get_parser(language)
         
+        # Get tokens to skip for this language
+        tokens_to_skip = SKIP_TOKENS.get(language, [])
+        _LOGGER.debug(f"Skipping tokens for language {language}: {tokens_to_skip}")
+        
+        # Add settings for the parser
+        settings = {
+            'PREFER_LANGUAGE_DATE_ORDER': True,
+            'PREFER_DAY_OF_MONTH': 'current',
+            'PREFER_DATES_FROM': 'current_period',
+            'REQUIRE_PARTS': ['hour'],
+            'SKIP_TOKENS': tokens_to_skip,
+            'NORMALIZE': True,
+        }
+        
         # Parse the date/time
-        date_data = parser.get_date_data(time_str)
+        date_data = parser.get_date_data(time_str, settings=settings)
         
         if date_data and date_data.date_obj:
             _LOGGER.debug(f"Successfully parsed with DateDataParser: {date_data.date_obj}")
-            # Convert to local time if needed
             local_dt = dt_util.as_local(date_data.date_obj)
             _LOGGER.debug(f"Converted to local time: {local_dt}")
             return local_dt.time()
