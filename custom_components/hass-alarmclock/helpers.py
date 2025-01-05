@@ -201,7 +201,8 @@ class DateTimeParser:
         
         parsed_time = self.parse_time(time_str) if time_str else time(0, 0)
         
-    return parsed_date, parsed_time
+        return parsed_date, parsed_time
+    
     def _parse_24h_time(self, match) -> tuple[int, int]:
         hour = int(match.group(1))
         minute = int(match.group(2))
