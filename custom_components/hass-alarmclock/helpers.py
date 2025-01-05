@@ -176,6 +176,14 @@ class DateTimeParser:
         """Parse full date/time string."""
         text = text.lower().strip()
         
+        # First try to parse as just a time
+        try:
+            time_obj = self.parse_time(text)
+            _LOGGER.debug(f"Successfully parsed as time-only: {time_obj}")
+            return dt_util.now().date(), time_obj
+        except ValueError as e:
+            _LOGGER.debug(f"Not a simple time: {e}")
+        
         # Split date and time if present
         date_str = text
         time_str = None
@@ -198,11 +206,16 @@ class DateTimeParser:
         try:
             parsed_date = self.parse_date(date_str)
         except ValueError as e:
-            _LOGGER.debug(f"Date parsing failed: {e}")
-            raise
+            if time_str:
+                # If we found a time part but date parsing failed, use today
+                parsed_date = self.reference_date
+                _LOGGER.debug(f"Using today's date: {parsed_date}")
+            else:
+                _LOGGER.debug(f"Date parsing failed: {e}")
+                raise
 
         try:
-            parsed_time = self.parse_time(time_str) if time_str else time(0, 0)
+            parsed_time = self.parse_time(time_str if time_str else date_str)
         except ValueError as e:
             _LOGGER.debug(f"Time parsing failed: {e}")
             raise
@@ -218,18 +231,4 @@ def parse_string(text: str, hass: HomeAssistant = None) -> tuple[date, time]:
     _LOGGER.debug(f"Parsing string: {text} with language: {language}")
     
     parser = DateTimeParser(language)
-    
-    # First try to parse as just a time
-    try:
-        time_obj = parser.parse_time(text)
-        _LOGGER.debug(f"Successfully parsed time: {time_obj}")
-        return dt_util.now().date(), time_obj
-    except ValueError as e:
-        _LOGGER.debug(f"Time-only parsing failed: {e}, trying full date-time parsing")
-        
-    # If that fails, try full date-time parsing
-    try:
-        return parser.parse(text)
-    except ValueError as e:
-        _LOGGER.debug(f"Full date-time parsing failed: {e}")
-        raise
+    return parser.parse(text)
