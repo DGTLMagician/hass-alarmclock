@@ -18,12 +18,26 @@ SKIP_TOKENS = {
     'fr': ['heure', 'heures'],
     'es': ['hora', 'horas'],
     'it': ['ora', 'ore'],
-    # Add more languages as needed
 }
+
+def create_parser_key(language: str, settings: dict = None) -> str:
+    """Create a unique key for parser caching."""
+    if not settings:
+        return language
+    
+    # Convert any lists in settings to tuples for hashing
+    hashable_settings = {}
+    for key, value in settings.items():
+        if isinstance(value, list):
+            hashable_settings[key] = tuple(value)
+        else:
+            hashable_settings[key] = value
+    
+    return f"{language}_{hash(frozenset(hashable_settings.items()))}"
 
 def get_parser(language: str, settings: dict = None) -> DateDataParser:
     """Get or create a DateDataParser instance for the given language."""
-    parser_key = f"{language}_{hash(frozenset(settings.items()))}" if settings else language
+    parser_key = create_parser_key(language, settings)
     
     if parser_key not in _parsers:
         _LOGGER.debug(f"Creating new DateDataParser for language: {language} with settings: {settings}")
@@ -34,28 +48,13 @@ def get_parser(language: str, settings: dict = None) -> DateDataParser:
     return _parsers[parser_key]
 
 def parse_time_string(time_str: str, hass: HomeAssistant = None) -> time:
-    """Parse time string in various formats to time object.
-    
-    Uses DateDataParser with the system language from Home Assistant.
-    Falls back to basic parsing for standard formats.
-    
-    Args:
-        time_str: Time string in any format (natural language or standard)
-        hass: HomeAssistant instance for language detection
-        
-    Returns:
-        time object
-    """
-    # Remove any whitespace
+    """Parse time string in various formats to time object."""
     time_str = time_str.strip()
     
     _LOGGER.debug(f"Parsing time string: {time_str}")
 
     try:
-        # Get timezone string from Home Assistant
         timezone_str = str(dt_util.DEFAULT_TIME_ZONE)
-        
-        # Get language from Home Assistant
         language = 'en'  # Default to English
         if hass:
             language = hass.config.language
