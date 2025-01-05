@@ -21,35 +21,52 @@ SKIP_TOKENS = {
     # Add more languages as needed
 }
 
-def get_parser(language: str) -> DateDataParser:
+def get_parser(language: str, settings: dict = None) -> DateDataParser:
     """Get or create a DateDataParser instance for the given language."""
-    if language not in _parsers:
-        _LOGGER.debug(f"Creating new DateDataParser for language: {language}")
-        _parsers[language] = DateDataParser(languages=[language])
-    return _parsers[language]
+    parser_key = f"{language}_{hash(frozenset(settings.items()))}" if settings else language
+    
+    if parser_key not in _parsers:
+        _LOGGER.debug(f"Creating new DateDataParser for language: {language} with settings: {settings}")
+        _parsers[parser_key] = DateDataParser(
+            languages=[language],
+            settings=settings
+        )
+    return _parsers[parser_key]
 
 def parse_time_string(time_str: str, hass: HomeAssistant = None) -> time:
-    """Parse time string in various formats to time object."""
+    """Parse time string in various formats to time object.
+    
+    Uses DateDataParser with the system language from Home Assistant.
+    Falls back to basic parsing for standard formats.
+    
+    Args:
+        time_str: Time string in any format (natural language or standard)
+        hass: HomeAssistant instance for language detection
+        
+    Returns:
+        time object
+    """
+    # Remove any whitespace
     time_str = time_str.strip()
     
     _LOGGER.debug(f"Parsing time string: {time_str}")
 
     try:
+        # Get timezone string from Home Assistant
         timezone_str = str(dt_util.DEFAULT_TIME_ZONE)
+        
+        # Get language from Home Assistant
         language = 'en'  # Default to English
         if hass:
             language = hass.config.language
         
         _LOGGER.debug(f"Using timezone: {timezone_str}, language: {language}")
 
-        # Get parser for this language
-        parser = get_parser(language)
-        
         # Get tokens to skip for this language
         tokens_to_skip = SKIP_TOKENS.get(language, [])
         _LOGGER.debug(f"Skipping tokens for language {language}: {tokens_to_skip}")
         
-        # Add settings for the parser
+        # Define parser settings
         settings = {
             'PREFER_LANGUAGE_DATE_ORDER': True,
             'PREFER_DAY_OF_MONTH': 'current',
@@ -58,9 +75,12 @@ def parse_time_string(time_str: str, hass: HomeAssistant = None) -> time:
             'SKIP_TOKENS': tokens_to_skip,
             'NORMALIZE': True,
         }
+
+        # Get parser with settings
+        parser = get_parser(language, settings)
         
         # Parse the date/time
-        date_data = parser.get_date_data(time_str, settings=settings)
+        date_data = parser.get_date_data(time_str)
         
         if date_data and date_data.date_obj:
             _LOGGER.debug(f"Successfully parsed with DateDataParser: {date_data.date_obj}")
