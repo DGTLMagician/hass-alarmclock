@@ -30,7 +30,7 @@ def get_parser(language: str) -> DateDataParser:
 
 def parse_time_string(time_str: str, hass: HomeAssistant = None) -> time:
     """Parse time string in various formats to time object."""
-    time_str = time_str.strip()
+    time_str = time_str.strip().lower()
     
     _LOGGER.debug(f"Parsing time string: {time_str}")
 
@@ -42,11 +42,14 @@ def parse_time_string(time_str: str, hass: HomeAssistant = None) -> time:
         
         _LOGGER.debug(f"Using timezone: {timezone_str}, language: {language}")
 
-        # Get tokens to skip for this language
-        tokens_to_skip = SKIP_TOKENS.get(language, [])
-        _LOGGER.debug(f"Skipping tokens for language {language}: {tokens_to_skip}")
-        
-        # Get parser
+        # Simple hour-only format (just a number)
+        if re.match(r'^\d+$', time_str):
+            hour = int(time_str)
+            if 0 <= hour <= 23:
+                _LOGGER.debug(f"Matched simple hour format: {hour}:00")
+                return time(hour, 0)
+
+        # Get parser for all other cases
         parser = get_parser(language)
         
         # Parse the date/time
