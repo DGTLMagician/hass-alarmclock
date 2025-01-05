@@ -1,11 +1,20 @@
-"""Helper functions for Alarm Clock integration."""
 from datetime import time, datetime, date, timedelta
 import logging
 import re
+import dateparser
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
+import spacy
 
 _LOGGER = logging.getLogger(__name__)
+
+# Load a suitable spaCy model. 'en_core_web_sm' is a small, fast model.
+# You might need to download it: python -m spacy download en_core_web_sm
+try:
+    nlp = spacy.load("en_core_web_sm")
+except OSError:
+    _LOGGER.error("Could not load spaCy model. Please run: python -m spacy download en_core_web_sm")
+    nlp = None  # Handle the case where the model isn't loaded
 
 class Language:
     """Language specific parsing configuration."""
@@ -46,7 +55,11 @@ LANGUAGES = {
             'noon': 'noon',
             'midnight': 'midnight',
             'at': 'at',
-            'hour': 'hour'
+            'hour': 'hour',
+            'morning': 'morning',
+            'afternoon': 'afternoon',
+            'evening': 'evening',
+            'night': 'night'
         }
     ),
     'nl': Language(
@@ -72,7 +85,11 @@ LANGUAGES = {
             'noon': 'middag',
             'midnight': 'middernacht',
             'at': 'om',
-            'hour': 'uur'
+            'hour': 'uur',
+            'morning': 'ochtend',
+            'afternoon': 'middag',
+            'evening': 'avond',
+            'night': 'nacht'
         }
     )
 }
@@ -89,7 +106,15 @@ class DateTimeParser:
         self.reference_date = dt_util.now().date()
 
     def parse_time(self, time_str: str) -> time:
-        """Parse time string and return time object."""
+        if nlp:  # Check if spaCy is loaded
+            doc = nlp(time_str)
+            for ent in doc.ents:
+                if ent.label_ == "TIME":
+                    try:
+                        parsed_time = dateparser.parse(ent.text).time()
+                        return parsed_time
+                    except AttributeError:
+                        pass #dateparser was unable to parse the time, continue with other methods
         time_str = time_str.lower().strip()
         
         # Remove language-specific words like 'uur'
@@ -107,9 +132,9 @@ class DateTimeParser:
             # Simple hour only (15, 09, 9)
             r'^(\d{1,2})$': self._parse_simple_24h,
         }
-        
+
         for pattern, parser in patterns.items():
-            match = re.match(f'^{pattern}$', time_str)
+            match = re.match(f'^{pattern}$', time_str)  # Corrected line
             if match:
                 _LOGGER.debug(f"Matched time pattern: {pattern}")
                 hour, minute = parser(match)
@@ -164,9 +189,46 @@ class DateTimeParser:
         raise ValueError(f"Could not parse date: {date_str}")
 
     def parse(self, text: str) -> tuple[date, time]:
-        """Parse full date/time string."""
+        """Parse full date/time string with NLP."""
         text = text.lower().strip()
-        
+
+        if nlp:
+            doc = nlp(text)
+            date_str = None
+            time_str = None
+            for ent in doc.ents:
+                if ent.label_ == "DATE":
+                    date_str = ent.text
+                elif ent.label_ == "TIME":
+                    time_str = ent.text
+
+            if date_str:
+                try:
+                    parsed_date = dateparser.parse(date_str).date()
+                except AttributeError:
+                    _LOGGER.debug(f"Dateparser could not parse date: {date_str}")
+                    parsed_date = None
+            else:
+                parsed_date = None
+
+            if time_str:
+                try:
+                    parsed_time = dateparser.parse(time_str).time()
+                except AttributeError:
+                    _LOGGER.debug(f"Dateparser could not parse time: {time_str}")
+                    parsed_time = None
+            else:
+                parsed_time = None
+            
+            if parsed_date and parsed_time:
+                return parsed_date, parsed_time
+            elif parsed_date:
+                return parsed_date, time(0,0)
+            elif parsed_time:
+                return dt_util.now().date(), parsed_time
+
+        # Fallback to existing logic if NLP fails or is not available
+        _LOGGER.debug("Falling back to non-NLP parsing logic.")
         # Split date and time if present
         date_str = text
         time_str = None
@@ -187,52 +249,25 @@ class DateTimeParser:
         _LOGGER.debug(f"Parsing date: '{date_str}' and time: '{time_str}'")
         
         # Parse date and time
-        parsed_date = self.parse_date(date_str)
-        parsed_time = self.parse_time(time_str) if time_str else time(0, 0)
+        try:
+            parsed_date = self.parse_date(date_str)
+        except ValueError as e:
+            _LOGGER.debug(f"Date parsing failed: {e}")
+            raise
+
+        try:
+            parsed_time = self.parse_time(time_str) if time_str else time(0, 0)
+        except ValueError as e:
+            _LOGGER.debug(f"Time parsing failed: {e}")
+            raise
         
-        return parsed_date, parsed_time
-
-    def _parse_24h_time(self, match) -> tuple[int, int]:
-        hour = int(match.group(1))
-        minute = int(match.group(2))
-        if not (0 <= hour <= 23 and 0 <= minute <= 59):
-            raise ValueError(f"Invalid time: {hour}:{minute}")
-        return hour, minute
-
-    def _parse_12h_time(self, match) -> tuple[int, int]:
-        hour = int(match.group(1))
-        minute = int(match.group(2))
-        meridiem = match.group(3)
+        # Use Dateparser for final validation and parsing
+        datetime_str = f"{parsed_date} {parsed_time}"
+        parsed_datetime = dateparser.parse(datetime_str)
+        if not parsed_datetime:
+            raise ValueError(f"Could not parse datetime: {datetime_str}")
         
-        if hour > 12 or minute > 59:
-            raise ValueError(f"Invalid time: {hour}:{minute} {meridiem}")
-            
-        if meridiem == self.lang.time_words['pm'] and hour != 12:
-            hour += 12
-        elif meridiem == self.lang.time_words['am'] and hour == 12:
-            hour = 0
-            
-        return hour, minute
-
-    def _parse_simple_12h(self, match) -> tuple[int, int]:
-        hour = int(match.group(1))
-        meridiem = match.group(2)
-        
-        if hour > 12:
-            raise ValueError(f"Invalid hour: {hour}")
-            
-        if meridiem == self.lang.time_words['pm'] and hour != 12:
-            hour += 12
-        elif meridiem == self.lang.time_words['am'] and hour == 12:
-            hour = 0
-            
-        return hour, 0
-
-    def _parse_simple_24h(self, match) -> tuple[int, int]:
-        hour = int(match.group(1))
-        if not 0 <= hour <= 23:
-            raise ValueError(f"Invalid hour: {hour}")
-        return hour, 0
+        return parsed_datetime.date(), parsed_datetime.time()
 
 def parse_string(text: str, hass: HomeAssistant = None) -> tuple[date, time]:
     """Parse date/time string using system language."""
