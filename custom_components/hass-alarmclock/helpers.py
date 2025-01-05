@@ -46,20 +46,11 @@ def parse_time_string(time_str: str, hass: HomeAssistant = None) -> time:
         tokens_to_skip = SKIP_TOKENS.get(language, [])
         _LOGGER.debug(f"Skipping tokens for language {language}: {tokens_to_skip}")
         
-        # Get parser without settings first
+        # Get parser
         parser = get_parser(language)
         
         # Parse the date/time
-        date_data = parser.get_date_data(
-            time_str,
-            date_formats=['%H:%M', '%H:%M:%S', '%H'],
-            settings={
-                'TIMEZONE': timezone_str,
-                'RETURN_TIME_AS_PERIOD': False,
-                'TO_TIMEZONE': timezone_str,
-                'SKIP_TOKENS': tokens_to_skip
-            }
-        )
+        date_data = parser.get_date_data(time_str)
         
         if date_data and date_data.date_obj:
             _LOGGER.debug(f"Successfully parsed with DateDataParser: {date_data.date_obj}")
@@ -72,23 +63,18 @@ def parse_time_string(time_str: str, hass: HomeAssistant = None) -> time:
     except Exception as e:
         _LOGGER.debug(f"DateDataParser failed with error: {str(e)}")
 
-    # Try HH:MM format
+    # Fall back to basic format parsing
+    try:
+        # Try ISO format (HH:MM:SS)
+        return time.fromisoformat(time_str)
+    except ValueError:
+        pass
+
+    # Final fallback for HH:MM format
     try:
         hour, minute = map(int, time_str.split(':'))
         if 0 <= hour <= 23 and 0 <= minute <= 59:
             return time(hour, minute)
-    except ValueError:
-        pass
-
-    # Final fallback for just hours (with optional non-digit characters)
-    try:
-        # Extract first number from string
-        hour_match = re.search(r'\d+', time_str)
-        if hour_match:
-            hour = int(hour_match.group())
-            if 0 <= hour <= 23:
-                _LOGGER.debug(f"Parsed hour-only value: {hour}:00")
-                return time(hour, 0)
     except ValueError:
         pass
 
